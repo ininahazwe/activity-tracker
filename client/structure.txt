@@ -1,0 +1,35 @@
+src/
+├── App.tsx
+├── components
+│   ├── ReferenceDataSettings.tsx
+│   ├── common
+│   │   └── MultiSelect.tsx
+│   ├── forms
+│   │   ├── ActivityMultiStepForm.tsx
+│   │   └── LocationBlock.tsx
+│   ├── layout
+│   │   └── AppShell.tsx
+│   └── modals
+│       ├── EditUserModal.tsx
+│       └── InviteUserModal.tsx
+├── hooks
+│   ├── useLocationData.ts
+│   └── useReferenceData.ts
+├── main.tsx
+├── pages
+│   ├── AcceptInvitation.tsx
+│   ├── ActivitiesPage.tsx
+│   ├── DashboardPage.tsx
+│   ├── FinancePage.tsx
+│   ├── LoginPage.tsx
+│   ├── NewActivityPage.tsx
+│   ├── SettingsPages.tsx
+│   └── UsersPage.tsx
+├── stores
+│   └── authStore.ts
+├── styles
+│   └── globals.css
+├── types
+│   └── index.ts
+└── utils
+    └── api.ts
