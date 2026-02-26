@@ -35,9 +35,9 @@ export interface Project extends ProjectSummary {
 }
 
 export interface Location {
-  city: string;
-  region: string;
-  country: string;
+  countryId?: string;
+  regionId?: string;
+  cityId?: string;
   dateStart: string;
   dateEnd: string;
 }

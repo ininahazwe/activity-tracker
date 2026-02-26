@@ -1,4 +1,5 @@
 import ReferenceDataSettings from "../components/ReferenceDataSettings";
+import ProjectsSettings from "@/pages/Projectssettings.tsx";
 
 // ─── Activity Types Settings ───
 export function ActivityTypesPage() {
@@ -84,4 +85,9 @@ export function CitiesPage() {
             parentCategory="regions"
         />
     );
+}
+
+// ─── Projects Settings ───
+export function ProjectsPage() {
+    return <ProjectsSettings />;
 }

@@ -11,22 +11,43 @@ interface LocationBlockProps {
   };
 }
 
-export default function LocationBlock({ locations, onChange, referenceData }: LocationBlockProps) {
+export default function LocationBlock({
+                                        locations,
+                                        onChange,
+                                        referenceData
+                                      }: LocationBlockProps) {
+
+  console.log("[LocationBlock] referenceData:", referenceData);
+  console.log("[LocationBlock] countries:", referenceData?.countries);
+  console.log("[LocationBlock] countries length:", referenceData?.countries?.length);
 
   function addLocation() {
-    onChange([...locations, { city: "", region: "", country: "", dateStart: "", dateEnd: "" }]);
+    onChange([
+      ...locations,
+      {
+        countryId: undefined,
+        regionId: undefined,
+        cityId: undefined,
+        dateStart: "",
+        dateEnd: ""
+      }
+    ]);
   }
 
-  function updateLoc(idx: number, field: keyof Location, value: string) {
+  // ✅ ADAPTATION: Utiliser les IDs au lieu des noms
+  function updateLoc(idx: number, field: keyof Location, value: string | undefined) {
     const copy = [...locations];
     const updated = { ...copy[idx], [field]: value };
 
-    if (field === "country") {
-      updated.region = "";
-      updated.city = "";
+    // ✅ ADAPTATION: Quand on change de pays, réinitialiser les régions/villes
+    if (field === "countryId") {
+      updated.regionId = undefined;
+      updated.cityId = undefined;
     }
-    if (field === "region") {
-      updated.city = "";
+
+    // ✅ ADAPTATION: Quand on change de région, réinitialiser la ville
+    if (field === "regionId") {
+      updated.cityId = undefined;
     }
 
     copy[idx] = updated;
@@ -37,28 +58,33 @@ export default function LocationBlock({ locations, onChange, referenceData }: Lo
     onChange(locations.filter((_, i) => i !== idx));
   }
 
-  const getAvailableRegions = (countryName: string) => {
-    const country = referenceData.countries.find(c => c.name === countryName);
-    return country ? referenceData.regions.filter(r => r.parentId === country.id) : [];
+  // ✅ ADAPTATION: Filtrer par countryId au lieu du nom
+  const getAvailableRegions = (countryId?: string) => {
+    if (!countryId) return [];
+    return referenceData.regions.filter(r => r.parentId === countryId);
   };
 
-  const getAvailableCities = (regionName: string) => {
-    const region = referenceData.regions.find(r => r.name === regionName);
-    return region ? referenceData.cities.filter(c => c.parentId === region.id) : [];
+  // ✅ ADAPTATION: Filtrer par regionId au lieu du nom
+  const getAvailableCities = (regionId?: string) => {
+    if (!regionId) return [];
+    return referenceData.cities.filter(c => c.parentId === regionId);
   };
 
   return (
       <div className="flex flex-col gap-4">
         {locations.map((loc, i) => {
-          const availableRegions = getAvailableRegions(loc.country);
-          const availableCities = getAvailableCities(loc.region);
+          const availableRegions = getAvailableRegions(loc.countryId);
+          const availableCities = getAvailableCities(loc.regionId);
 
           return (
-              <div key={i} className="bg-surface border border-border rounded-xl p-5 relative animate-[fadeIn_0.3s_ease]">
+              <div
+                  key={i}
+                  className="bg-surface border border-border rounded-xl p-5 relative animate-[fadeIn_0.3s_ease]"
+              >
                 <div className="flex justify-between items-center mb-4">
-                  <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider">
-                    📍 Location {i + 1}
-                  </span>
+              <span className="text-gray-500 text-[10px] font-bold uppercase tracking-wider">
+                📍 Location {i + 1}
+              </span>
                   {locations.length > 1 && (
                       <button
                           onClick={() => removeLoc(i)}
@@ -70,56 +96,65 @@ export default function LocationBlock({ locations, onChange, referenceData }: Lo
                 </div>
 
                 <div className="grid grid-cols-3 gap-3 mb-3">
+                  {/* Country Select */}
                   <div>
                     <label className="block text-gray-500 text-[10px] font-semibold uppercase tracking-wide mb-1">
                       Country <span className="text-red-400">*</span>
                     </label>
                     <select
-                        value={loc.country}
-                        onChange={(e) => updateLoc(i, "country", e.target.value)}
+                        value={loc.countryId || ""}
+                        onChange={(e) => updateLoc(i, "countryId", e.target.value || undefined)}
                         className="input-field text-xs"
                     >
                       <option value="">Select country</option>
                       {referenceData.countries.map((c) => (
-                          <option key={c.id} value={c.name}>{c.name}</option>
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
                       ))}
                     </select>
                   </div>
 
+                  {/* Region Select */}
                   <div>
                     <label className="block text-gray-500 text-[10px] font-semibold uppercase tracking-wide mb-1">
-                      Region {loc.country ? <span className="text-red-400">*</span> : ""}
+                      Region {loc.countryId ? <span className="text-red-400">*</span> : ""}
                     </label>
                     <select
-                        value={loc.region}
-                        onChange={(e) => updateLoc(i, "region", e.target.value)}
-                        disabled={!loc.country}
+                        value={loc.regionId || ""}
+                        onChange={(e) => updateLoc(i, "regionId", e.target.value || undefined)}
+                        disabled={!loc.countryId}
                         className="input-field text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <option value="">
-                        {loc.country ? "Select region" : "Select country first"}
+                        {loc.countryId ? "Select region" : "Select country first"}
                       </option>
                       {availableRegions.map((r) => (
-                          <option key={r.id} value={r.name}>{r.name}</option>
+                          <option key={r.id} value={r.id}>
+                            {r.name}
+                          </option>
                       ))}
                     </select>
                   </div>
 
+                  {/* City Select */}
                   <div>
                     <label className="block text-gray-500 text-[10px] font-semibold uppercase tracking-wide mb-1">
-                      City {loc.region ? <span className="text-red-400">*</span> : ""}
+                      City {loc.regionId ? <span className="text-red-400">*</span> : ""}
                     </label>
                     <select
-                        value={loc.city}
-                        onChange={(e) => updateLoc(i, "city", e.target.value)}
-                        disabled={!loc.region}
+                        value={loc.cityId || ""}
+                        onChange={(e) => updateLoc(i, "cityId", e.target.value || undefined)}
+                        disabled={!loc.regionId}
                         className="input-field text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <option value="">
-                        {loc.region ? "Select city" : "Select region first"}
+                        {loc.regionId ? "Select city" : "Select region first"}
                       </option>
                       {availableCities.map((c) => (
-                          <option key={c.id} value={c.name}>{c.name}</option>
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
                       ))}
                     </select>
                   </div>

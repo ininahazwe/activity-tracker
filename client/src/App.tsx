@@ -15,7 +15,9 @@ import {
     CountriesPage,
     RegionsPage,
     CitiesPage,
+    ProjectsPage
 } from "./pages/SettingsPages";
+
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
     const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -50,6 +52,14 @@ export default function App() {
                                 <Route path="/finance" element={<FinancePage />} />
 
                                 {/* Settings Routes (Admin only) */}
+                                <Route
+                                    path="/settings/projects"
+                                    element={
+                                        <AdminRoute>
+                                            <ProjectsPage  />
+                                        </AdminRoute>
+                                    }
+                                />
                                 <Route
                                     path="/settings/activity-types"
                                     element={

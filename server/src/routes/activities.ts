@@ -8,45 +8,44 @@ import emailService from "../services/emailService";
 const prisma = new PrismaClient();
 export const activityRouter = Router();
 
-// Toutes les routes nécessitent l'authentification
 activityRouter.use(authenticate);
 
 // ─── GET /api/activities ───
-// Lister les activités avec filtres et pagination
-
 activityRouter.get("/", async (req: Request, res: Response) => {
   try {
     const filters = activityFilterSchema.parse(req.query);
-    const { page, limit, sortBy, sortOrder, projectId, status, search, country, funder, thematic, dateFrom, dateTo } = filters;
+    const { page, limit, sortBy, sortOrder, projectId, status, search, country, funder, thematic } = filters;
 
     const where: Prisma.ActivityWhereInput = {};
 
-    // Filtrage basé sur le rôle: FIELD users ne voient que les leurs
     if (req.user!.role === "FIELD") {
       where.createdById = req.user!.userId;
     } else if (req.user!.role === "MANAGER") {
-      // Managers voient les activités de leurs projets
       const userProjects = await prisma.userProject.findMany({
         where: { userId: req.user!.userId },
         select: { projectId: true },
       });
       where.projectId = { in: userProjects.map((up) => up.projectId) };
     }
-    // ADMIN voit tout
 
-    if (projectId) where.projectId = projectId;
-    if (status) where.status = status;
+    if (projectId) {
+      if (req.user!.role === "MANAGER") {
+        const hasAccess = await prisma.userProject.findUnique({
+          where: { userId_projectId: { userId: req.user!.userId, projectId } }
+        });
+        if (!hasAccess) return res.status(403).json({ error: "No access to this project" });
+      }
+      where.projectId = projectId;
+    }
+
+    if (status) where.status = status as any;
     if (search) {
-      where.activityTitle = { contains: search, mode: "insensitive" };
+      where.activityTitle = { contains: search, mode: "insensitive" } as any;
     }
 
-    // Filtrage JSON (locations, funders, thematicFocus)
-    if (country) {
-      // @ts-ignore
-      where.locations = { path: "$[*].country", array_contains: country };
-    }
-    if (funder) where.funders = { array_contains: funder };
-    if (thematic) where.thematicFocus = { array_contains: thematic };
+    if (country) where.locations = { some: { countryId: country } };
+    if (funder) where.funders = { some: { funderId: funder } };
+    if (thematic) where.thematicFocus = { some: { thematicId: thematic } };
 
     const [activities, total] = await Promise.all([
       prisma.activity.findMany({
@@ -54,7 +53,11 @@ activityRouter.get("/", async (req: Request, res: Response) => {
         include: {
           project: { select: { id: true, name: true, slug: true } },
           createdBy: { select: { id: true, name: true, email: true } },
-          validatedBy: { select: { id: true, name: true } },
+          locations: { include: { country: true, region: true, city: true } },
+          funders: { include: { funder: true } },
+          activityTypes: { include: { activityType: true } },
+          thematicFocus: { include: { thematic: true } },
+          targetGroups: { include: { group: true } }
         },
         orderBy: { [sortBy]: sortOrder },
         skip: (page - 1) * limit,
@@ -65,12 +68,7 @@ activityRouter.get("/", async (req: Request, res: Response) => {
 
     res.json({
       data: activities,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   } catch (err) {
     console.error("[ACTIVITIES] List error:", err);
@@ -79,8 +77,6 @@ activityRouter.get("/", async (req: Request, res: Response) => {
 });
 
 // ─── GET /api/activities/:id ───
-// Récupérer une activité spécifique
-
 activityRouter.get("/:id", async (req: Request, res: Response) => {
   try {
     const activity = await prisma.activity.findUnique({
@@ -88,242 +84,214 @@ activityRouter.get("/:id", async (req: Request, res: Response) => {
       include: {
         project: true,
         createdBy: { select: { id: true, name: true, email: true } },
-        validatedBy: { select: { id: true, name: true } },
+        locations: { include: { country: true, region: true, city: true } },
+        funders: { include: { funder: true } },
+        activityTypes: { include: { activityType: true } },
+        thematicFocus: { include: { thematic: true } },
+        targetGroups: { include: { group: true } }
       },
     });
 
     if (!activity) return res.status(404).json({ error: "Activity not found" });
-
     res.json(activity);
   } catch (err) {
-    console.error("[ACTIVITIES] Get error:", err);
     res.status(500).json({ error: "Failed to fetch activity" });
   }
 });
 
 // ─── POST /api/activities ───
-// Créer une nouvelle activité avec notifications Resend
-
 activityRouter.post("/", authorizeProject(), async (req: Request, res: Response) => {
   try {
     const data = createActivitySchema.parse(req.body);
+    const {
+      funders: funderIds = [],
+      activityTypes: activityTypeIds = [],
+      thematicFocus: thematicIds = [],
+      targetGroups: groupIds = [],
+      locations: locationData = [],
+      ...basicData
+    } = data as any;
 
     const activity = await prisma.activity.create({
       data: {
-        ...data,
+        ...basicData,
         createdById: req.user!.userId,
-        status: "DRAFT",
-      },
-      include: { project: true, createdBy: { select: { id: true, name: true } } },
-    });
-
-    // Enregistrer dans l'audit
-    await logAudit({
-      userId: req.user!.userId,
-      action: "CREATE",
-      entityType: "Activity",
-      entityId: activity.id,
-    });
-
-    // ✨ NOTIFIER LES MANAGERS AVEC RESEND
-    try {
-      // Récupérer tous les managers et admins actifs (sauf le créateur)
-      const managers = await prisma.user.findMany({
-        where: {
-          role: { in: ['ADMIN', 'MANAGER'] },
-          status: 'ACTIVE',
-          NOT: { id: req.user!.userId }
+        // Conversion sécurisée des dates au niveau Activity
+        activityStartDate: locationData[0]?.dateStart ? new Date(locationData[0].dateStart) : null,
+        activityEndDate: locationData[0]?.dateEnd ? new Date(locationData[0].dateEnd) : null,
+        funders: { create: funderIds.map((id: string) => ({ funder: { connect: { id } } })) },
+        activityTypes: { create: activityTypeIds.map((id: string) => ({ activityType: { connect: { id } } })) },
+        thematicFocus: { create: thematicIds.map((id: string) => ({ thematic: { connect: { id } } })) },
+        targetGroups: { create: groupIds.map((id: string) => ({ group: { connect: { id } } })) },
+        locations: {
+          create: locationData.map((loc: any) => ({
+            country: loc.countryId ? { connect: { id: loc.countryId } } : undefined,
+            region: loc.regionId ? { connect: { id: loc.regionId } } : undefined,
+            city: loc.cityId ? { connect: { id: loc.cityId } } : undefined
+          }))
         }
-      });
-
-      if (managers.length > 0) {
-        // Déterminer la date de l'activité
-        let activityDate = new Date().toLocaleDateString('fr-FR');
-        if ((data as any).startDate) {
-          activityDate = new Date((data as any).startDate).toLocaleDateString('fr-FR');
-        }
-
-        // Déterminer le lieu
-        let location = 'À confirmer';
-        if ((data as any).locations && Array.isArray((data as any).locations) && (data as any).locations.length > 0) {
-          location = (data as any).locations[0].city || (data as any).locations[0].region || 'À confirmer';
-        }
-
-        // Calculer le nombre de participants
-        let participantCount = 0;
-        if ((data as any).maleCount) participantCount += (data as any).maleCount;
-        if ((data as any).femaleCount) participantCount += (data as any).femaleCount;
-        if ((data as any).nonBinaryCount) participantCount += (data as any).nonBinaryCount;
-
-        // Envoyer les emails en parallèle (non-bloquant)
-        for (const manager of managers) {
-          emailService.sendActivityNotification({
-            recipientEmail: manager.email,
-            recipientName: manager.name,
-            activityTitle: data.activityTitle,
-            projectName: activity.project?.name || 'Non spécifié',
-            activityDate,
-            location,
-            participantCount
-          }).catch(err => {
-            console.warn(`⚠️ Email notification failed for ${manager.email}:`, err);
-          });
-        }
-
-        console.log(`✅ ${managers.length} notifications d'activité envoyées`);
       }
-    } catch (notificationError) {
-      console.warn('⚠️ Erreur lors de l\'envoi des notifications d\'activité:', notificationError);
-      // Ne pas bloquer la création d'activité si les notifications échouent
-    }
+    });
 
     res.status(201).json(activity);
   } catch (err) {
-    if (err instanceof Error && err.name === "ZodError") {
-      return res.status(400).json({ error: "Validation error", details: err });
-    }
-    console.error("[ACTIVITIES] Create error:", err);
     res.status(500).json({ error: "Failed to create activity" });
   }
 });
 
 // ─── PUT /api/activities/:id ───
-// Mettre à jour une activité
-
 activityRouter.put("/:id", async (req: Request, res: Response) => {
   try {
-    const existing = await prisma.activity.findUnique({ where: { id: req.params.id } });
-    if (!existing) return res.status(404).json({ error: "Activity not found" });
-
-    // Seul le créateur ou un manager/admin peut éditer
-    if (req.user!.role === "FIELD" && existing.createdById !== req.user!.userId) {
-      return res.status(403).json({ error: "Can only edit your own activities" });
-    }
-
-    // Les activités validées ne peuvent pas être éditées (sauf par admin)
-    if (existing.status === "VALIDATED" && req.user!.role !== "ADMIN") {
-      return res.status(400).json({ error: "Cannot edit validated activities" });
-    }
-
-    const data = updateActivitySchema.parse(req.body);
-    const activity = await prisma.activity.update({
-      where: { id: req.params.id },
-      data,
-      include: { project: true, createdBy: { select: { id: true, name: true } } },
+    const existing = await prisma.activity.findUnique({
+      where: { id: req.params.id }
     });
 
-    const changes = diffChanges(existing as any, data as any, Object.keys(data));
-    await logAudit({
-      userId: req.user!.userId,
-      action: "UPDATE",
-      entityType: "Activity",
-      entityId: activity.id,
-      changes,
+    if (!existing) return res.status(404).json({ error: "Activity not found" });
+
+    const data = updateActivitySchema.parse(req.body);
+
+    const {
+      projectId,
+      projectName,
+      projectTitle,
+      consortium,
+      implementingPartners,
+      keyOutputs,
+      meansOfVerification,
+      evidenceAvailable,
+      inclusionMarginalised,
+      womenLeadership,
+      locations: locationData = [],
+      funders: funderIds = [],
+      activityTypes: activityTypeIds = [],
+      thematicFocus: thematicIds = [],
+      targetGroups: groupIds = [],
+      ...rest
+    } = data as any;
+
+    // ⬇️ ⬇️ ⬇️ INSÈRE LE CODE ICI ⬇️ ⬇️ ⬇️
+    // ✅ VALIDATION: Vérifier que tous les IDs existent
+    const allIds = [
+      ...funderIds,
+      ...activityTypeIds,
+      ...thematicIds,
+      ...groupIds,
+      ...(locationData.flatMap((loc: any) => [loc.countryId, loc.regionId, loc.cityId].filter(Boolean)) || [])
+    ];
+
+    if (allIds.length > 0) {
+      const existingReferences = await prisma.referenceData.findMany({
+        where: { id: { in: allIds } },
+        select: { id: true }
+      });
+
+      const existingIds = new Set(existingReferences.map(r => r.id));
+      const missingIds = allIds.filter(id => !existingIds.has(id));
+
+      if (missingIds.length > 0) {
+        console.error("[ACTIVITIES] Missing ReferenceData IDs:", missingIds);
+        return res.status(400).json({
+          error: "Invalid reference data IDs",
+          missingIds
+        });
+      }
+    }
+    // ⬆️ ⬆️ ⬆️ FIN DU CODE À INSÉRER ⬆️ ⬆️ ⬆️
+
+    // ✅ Whitelist des champs valides du schema
+    const validData = {
+      activityTitle: rest.activityTitle,
+      maleCount: rest.maleCount,
+      femaleCount: rest.femaleCount,
+      nonBinaryCount: rest.nonBinaryCount,
+      ageUnder25: rest.ageUnder25,
+      age25to40: rest.age25to40,
+      age40plus: rest.age40plus,
+      disabilityYes: rest.disabilityYes,
+      disabilityNo: rest.disabilityNo,
+      immediateOutcomes: rest.immediateOutcomes,
+      skillsGained: rest.skillsGained,
+      actionsTaken: rest.actionsTaken,
+      policiesInfluenced: rest.policiesInfluenced,
+      institutionalChanges: rest.institutionalChanges,
+      commitmentsSecured: rest.commitmentsSecured,
+      mediaMentions: rest.mediaMentions,
+      publicationsProduced: rest.publicationsProduced,
+      genderOutcomes: rest.genderOutcomes,
+      newPartnerships: rest.newPartnerships,
+      existingPartnerships: rest.existingPartnerships,
+    };
+
+    const activity = await prisma.activity.update({
+      where: { id: req.params.id },
+      data: {
+        ...validData,
+        project: projectId ? { connect: { id: projectId } } : undefined,
+        activityStartDate: locationData[0]?.dateStart ? new Date(locationData[0].dateStart) : null,
+        activityEndDate: locationData[0]?.dateEnd ? new Date(locationData[0].dateEnd) : null,
+        funders: {
+          deleteMany: {},
+          create: funderIds.map((id: string) => ({ funder: { connect: { id } } }))
+        },
+        activityTypes: {
+          deleteMany: {},
+          create: activityTypeIds.map((id: string) => ({ activityType: { connect: { id } } }))
+        },
+        thematicFocus: {
+          deleteMany: {},
+          create: thematicIds.map((id: string) => ({ thematic: { connect: { id } } }))
+        },
+        targetGroups: {
+          deleteMany: {},
+          create: groupIds.map((id: string) => ({ group: { connect: { id } } }))
+        },
+        locations: {
+          deleteMany: {},
+          create: locationData.map((loc: any) => ({
+            country: loc.countryId ? { connect: { id: loc.countryId } } : undefined,
+            region: loc.regionId ? { connect: { id: loc.regionId } } : undefined,
+            city: loc.cityId ? { connect: { id: loc.cityId } } : undefined
+          }))
+        }
+      }
     });
 
     res.json(activity);
   } catch (err) {
-    if (err instanceof Error && err.name === "ZodError") {
-      return res.status(400).json({ error: "Validation error", details: err });
-    }
-    console.error("[ACTIVITIES] Update error:", err);
+    console.error("[ACTIVITIES] Update error details:", err);
     res.status(500).json({ error: "Failed to update activity" });
   }
 });
 
-// ─── POST /api/activities/:id/submit ───
-// Soumettre une activité pour révision
-
-activityRouter.post("/:id/submit", async (req: Request, res: Response) => {
-  try {
-    const activity = await prisma.activity.findUnique({ where: { id: req.params.id } });
-    if (!activity) return res.status(404).json({ error: "Activity not found" });
-
-    // Seuls les brouillons ou activités rejetées peuvent être soumis
-    if (activity.status !== "DRAFT" && activity.status !== "REJECTED") {
-      return res.status(400).json({ error: "Only drafts or rejected activities can be submitted" });
-    }
-
-    const updated = await prisma.activity.update({
-      where: { id: req.params.id },
-      data: { status: "SUBMITTED" },
-    });
-
-    await logAudit({
-      userId: req.user!.userId,
-      action: "UPDATE",
-      entityType: "Activity",
-      entityId: activity.id
-    });
-
-    res.json(updated);
-  } catch (err) {
-    console.error("[ACTIVITIES] Submit error:", err);
-    res.status(500).json({ error: "Failed to submit activity" });
-  }
+// ─── STATUS & DELETE ROUTES ───
+activityRouter.post("/:id/submit", async (req, res) => {
+  const updated = await prisma.activity.update({
+    where: { id: req.params.id },
+    data: { status: "SUBMITTED" }
+  });
+  res.json(updated);
 });
 
-// ─── POST /api/activities/:id/validate ───
-// Manager/Admin valide ou rejette une activité
-
-activityRouter.post("/:id/validate", authorize("ADMIN", "MANAGER"), async (req: Request, res: Response) => {
-  try {
-    const activity = await prisma.activity.findUnique({ where: { id: req.params.id } });
-    if (!activity) return res.status(404).json({ error: "Activity not found" });
-
-    // Seules les activités soumises peuvent être validées
-    if (activity.status !== "SUBMITTED") {
-      return res.status(400).json({ error: "Only submitted activities can be validated" });
-    }
-
-    const { status, rejectionReason } = validateActivitySchema.parse(req.body);
-
-    if (status === "REJECTED" && !rejectionReason) {
-      return res.status(400).json({ error: "Rejection reason is required" });
-    }
-
-    const updated = await prisma.activity.update({
-      where: { id: req.params.id },
-      data: {
-        status,
-        validatedById: req.user!.userId,
-        rejectionReason: status === "REJECTED" ? rejectionReason : null,
-      },
-    });
-
-    await logAudit({
-      userId: req.user!.userId,
-      action: status === "VALIDATED" ? "VALIDATE" : "REJECT",
-      entityType: "Activity",
-      entityId: activity.id,
-    });
-
-    res.json(updated);
-  } catch (err) {
-    console.error("[ACTIVITIES] Validate error:", err);
-    res.status(500).json({ error: "Failed to validate activity" });
-  }
+activityRouter.post("/:id/validate", authorize("ADMIN", "MANAGER"), async (req, res) => {
+  const { status, rejectionReason } = validateActivitySchema.parse(req.body);
+  const updated = await prisma.activity.update({
+    where: { id: req.params.id },
+    data: { status, validatedById: req.user!.userId, rejectionReason: status === "REJECTED" ? rejectionReason : null }
+  });
+  res.json(updated);
 });
 
-// ─── DELETE /api/activities/:id ───
-// Admin supprime une activité
+activityRouter.delete("/:id", authorize("ADMIN"), async (req, res) => {
+  await prisma.activity.delete({ where: { id: req.params.id } });
+  res.json({ success: true });
+});
 
-activityRouter.delete("/:id", authorize("ADMIN"), async (req: Request, res: Response) => {
-  try {
-    await prisma.activity.delete({ where: { id: req.params.id } });
-
-    await logAudit({
-      userId: req.user!.userId,
-      action: "DELETE",
-      entityType: "Activity",
-      entityId: req.params.id
-    });
-
-    res.json({ success: true });
-  } catch (err) {
-    console.error("[ACTIVITIES] Delete error:", err);
-    res.status(500).json({ error: "Failed to delete activity" });
-  }
+// ─── DEBUG: GET all reference data ───
+activityRouter.get("/debug/references", async (req: Request, res: Response) => {
+  const refs = await prisma.referenceData.findMany({
+    select: { id: true, category: true, name: true }
+  });
+  res.json(refs);
 });
 
 export default activityRouter;

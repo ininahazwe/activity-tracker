@@ -23,6 +23,8 @@ async function getReferenceData(category: string) {
         'country',
         'region',
         'city',
+        'programme_area',
+        'project',
     ];
 
     if (!validCategories.includes(category)) {

@@ -44,23 +44,8 @@ app.use("/api/", limiter);*/
 
 // ─── ROUTES ───
 
-// Auth routes
+// Auth routes (NO authentication required)
 app.use("/api/auth", authRouter);
-
-// Activity routes
-app.use("/api/activities", activityRouter);
-
-// User routes
-app.use("/api/users", userRouter);
-
-// Project routes
-app.use('/api/projects', projectsRouter);
-
-// Dashboard routes
-app.use("/api/dashboard", dashboardRouter);
-
-// Finance routes
-app.use("/api/finance", financeRouter);
 
 // ─── HEALTH CHECK ───
 
@@ -72,7 +57,24 @@ app.get("/api/health", (_req: Request, res: Response) => {
   });
 });
 
-// Reference
+// ─── PROTECTED ROUTES (require authentication) ───
+
+// Activity routes
+app.use("/api/activities", authenticate, activityRouter);
+
+// User routes
+app.use("/api/users", authenticate, userRouter);
+
+// Project routes
+app.use('/api/projects', authenticate, projectsRouter);
+
+// Dashboard routes
+app.use("/api/dashboard", authenticate, dashboardRouter);
+
+// Finance routes
+app.use("/api/finance", authenticate, financeRouter);
+
+// Reference routes
 app.use('/api/reference', authenticate, referenceRouter);
 
 // ─── ERROR HANDLER ───

@@ -117,6 +117,32 @@ api.interceptors.response.use(
 
 // ──── HELPER FUNCTION ────
 /**
+ * Extrait les IDs des locations, gère les cas où les données sont des objets ou des IDs
+ */
+function extractLocationIds(locations: any[]): any[] {
+  const seen = new Set();
+
+  return (locations || [])
+      .map((loc: any) => ({
+        // Extraction propre des IDs
+        countryId: loc.countryId || loc.country?.id || (typeof loc.country === 'string' ? loc.country : undefined),
+        regionId: loc.regionId || loc.region?.id || (typeof loc.region === 'string' ? loc.region : undefined),
+        cityId: loc.cityId || loc.city?.id || (typeof loc.city === 'string' ? loc.city : undefined),
+        // On convertit les chaînes vides en null pour Prisma
+        dateStart: loc.dateStart && loc.dateStart !== "" ? loc.dateStart : null,
+        dateEnd: loc.dateEnd && loc.dateEnd !== "" ? loc.dateEnd : null,
+      }))
+      .filter(loc => {
+        if (!loc.countryId) return false;
+        // Protection contre l'erreur 500 (Unique Constraint de Prisma)
+        const key = `${loc.countryId}-${loc.regionId || 'none'}-${loc.cityId || 'none'}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+}
+
+/**
  * Nettoie les paramètres en supprimant les valeurs vides
  * - Les tableaux vides sont supprimés
  * - Les chaînes vides sont supprimées
@@ -144,6 +170,60 @@ function cleanParams(params?: Record<string, any>): Record<string, any> {
   }, {} as Record<string, any>);
 }
 
+/**
+ * Nettoie les données d'activité en supprimant les objets imbriqués
+ * et en ne gardant que les IDs
+ */
+function cleanActivityData(data: any): any {
+  const cleaned = {
+    projectId: data.projectId,
+    activityTitle: data.activityTitle,
+    projectName: data.projectName || "",
+    projectTitle: data.projectTitle || "",
+    consortium: data.consortium || "",
+    implementingPartners: data.implementingPartners || "",
+    locations: extractLocationIds(data.locations),
+    activityTypes: Array.isArray(data.activityTypes)
+        ? data.activityTypes.map((t: any) => typeof t === 'string' ? t : t.id)
+        : [],
+    targetGroups: Array.isArray(data.targetGroups)
+        ? data.targetGroups.map((t: any) => typeof t === 'string' ? t : t.id)
+        : [],
+    thematicFocus: Array.isArray(data.thematicFocus)
+        ? data.thematicFocus.map((t: any) => typeof t === 'string' ? t : t.id)
+        : [],
+    funders: Array.isArray(data.funders)
+        ? data.funders.map((f: any) => typeof f === 'string' ? f : f.id)
+        : [],
+    maleCount: data.maleCount || 0,
+    femaleCount: data.femaleCount || 0,
+    nonBinaryCount: data.nonBinaryCount || 0,
+    ageUnder25: data.ageUnder25 || 0,
+    age25to40: data.age25to40 || 0,
+    age40plus: data.age40plus || 0,
+    disabilityYes: data.disabilityYes || 0,
+    disabilityNo: data.disabilityNo || 0,
+    keyOutputs: data.keyOutputs || "",
+    immediateOutcomes: data.immediateOutcomes || "",
+    skillsGained: data.skillsGained || "",
+    actionsTaken: data.actionsTaken || "",
+    meansOfVerification: data.meansOfVerification || "",
+    evidenceAvailable: data.evidenceAvailable || "",
+    policiesInfluenced: data.policiesInfluenced || "",
+    institutionalChanges: data.institutionalChanges || "",
+    commitmentsSecured: data.commitmentsSecured || "",
+    mediaMentions: data.mediaMentions || "",
+    publicationsProduced: data.publicationsProduced || "",
+    genderOutcomes: data.genderOutcomes || "",
+    inclusionMarginalised: data.inclusionMarginalised || "",
+    womenLeadership: data.womenLeadership || "",
+    newPartnerships: data.newPartnerships || "",
+    existingPartnerships: data.existingPartnerships || "",
+  };
+
+  return cleaned;
+}
+
 // ──── API METHODS ────
 
 export const authApi = {
@@ -161,11 +241,29 @@ export const activityApi = {
   get: (id: string) =>
       api.get(`/activities/${id}`),
 
-  create: (data: any) =>
-      api.post("/activities", data),
+  create: (data: any) => {
+    const cleaned = cleanActivityData(data);
+    console.log("[API] Creating activity with cleaned data:", JSON.stringify(cleaned, null, 2));
+    return api.post("/activities", cleaned);
+  },
 
-  update: (id: string, data: any) =>
-      api.put(`/activities/${id}`, data),
+  update: (id: string, data: any) => {
+    const cleaned = cleanActivityData(data);
+    console.log("[API] Updating activity", id, "with cleaned data:", JSON.stringify(cleaned, null, 2));
+    return api.put(`/activities/${id}`, cleaned)
+        .catch((err) => {
+          if (err.response?.status === 400) {
+            console.error("[API] 400 Error details:", JSON.stringify(err.response.data, null, 2));
+            // Log chaque détail d'erreur individuellement
+            if (err.response.data?.details) {
+              Object.entries(err.response.data.details).forEach(([field, issues]) => {
+                console.error(`  ❌ ${field}:`, issues);
+              });
+            }
+          }
+          throw err;
+        });
+  },
 
   submit: (id: string) =>
       api.post(`/activities/${id}/submit`),

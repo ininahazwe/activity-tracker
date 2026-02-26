@@ -23,11 +23,12 @@ export const updateUserSchema = z.object({
 
 // ─── LOCATION ───
 const locationSchema = z.object({
-  city: z.string().max(100).optional().default(""),
-  region: z.string().max(100).optional().default(""),
-  country: z.string().max(100),
-  dateStart: z.string(), // ISO date string
-  dateEnd: z.string().optional().default(""),
+  countryId: z.string().min(1),
+  regionId: z.string().optional().nullable(),
+  cityId: z.string().optional().nullable(),
+  // Permet une chaîne vide ou null, puis transforme en ce que Prisma attend
+  dateStart: z.string().or(z.null()).optional(),
+  dateEnd: z.string().or(z.null()).optional(),
 });
 
 // ─── ACTIVITY ───

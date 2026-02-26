@@ -12,6 +12,7 @@ const NAV_ITEMS = [
 
 // ─── SETTINGS MENU (Admin only) ───
 const SETTINGS_ITEMS = [
+  { path: "/settings/projects", icon: "📁", label: "Projects" },
   { path: "/settings/activity-types", icon: "📋", label: "Activity Types" },
   { path: "/settings/thematic-focus", icon: "🎯", label: "Thematic Focus" },
   { path: "/settings/funders", icon: "💰", label: "Funders" },

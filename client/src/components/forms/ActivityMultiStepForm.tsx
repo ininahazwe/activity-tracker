@@ -27,7 +27,7 @@ const EMPTY_FORM: ActivityFormData = {
   projectTitle: "",
   consortium: "",
   implementingPartners: "",
-  locations: [{ city: "", region: "", country: "", dateStart: "", dateEnd: "" }],
+  locations: [{ countryId: undefined, regionId: undefined, cityId: undefined, dateStart: "", dateEnd: "" }],
   activityTypes: [],
   targetGroups: [],
   thematicFocus: [],
@@ -99,6 +99,8 @@ export default function ActivityMultiStepForm() {
       activityApi.get(id)
           .then((res) => {
             const data = res.data;
+            console.log("[ACTIVITY_FORM] Loaded activity locations:", JSON.stringify(data.locations, null, 2));
+
             // Mapping des données reçues (objets complexes) vers les IDs attendus par le formulaire
             setForm({
               ...EMPTY_FORM,
@@ -108,6 +110,12 @@ export default function ActivityMultiStepForm() {
               targetGroups: data.targetGroups?.map((t: any) => t.id || t) || [],
               thematicFocus: data.thematicFocus?.map((t: any) => t.id || t) || [],
               funders: data.funders?.map((f: any) => f.id || f) || [],
+              // Normaliser les dates au format ISO (YYYY-MM-DD) pour le stockage interne
+              locations: form.locations.map((loc) => ({
+                ...loc,
+                dateStart: loc.dateStart ? new Date(loc.dateStart).toISOString() : null,
+                dateEnd: loc.dateEnd ? new Date(loc.dateEnd).toISOString() : null,
+              })),
             });
           })
           .catch(() => toast.error("Failed to load activity details"))
@@ -158,16 +166,31 @@ export default function ActivityMultiStepForm() {
       return;
     }
 
+    // Préparer les données pour l'envoi
+    // Les dates sont déjà en format ISO (YYYY-MM-DD) ou en DD/MM/YYYY
+    // La fonction parseDateFromDDMMYYYY gère les deux cas
+    const dataToSubmit = {
+      ...form,
+      locations: form.locations.map((loc) => ({
+        ...loc,
+        // Garder les dates telles quelles (elles sont déjà en ISO ou vides)
+        dateStart: loc.dateStart || "",
+        dateEnd: loc.dateEnd || "",
+      })),
+    };
+
+    console.log("[ACTIVITY_FORM] Data to submit:", JSON.stringify(dataToSubmit.locations, null, 2));
+
     setSubmitting(true);
     try {
       let res;
       if (id) {
         // Mode ÉDITION
-        res = await activityApi.update(id, form);
+        res = await activityApi.update(id, dataToSubmit);
         toast.success(asDraft ? "Draft updated successfully!" : "Activity updated and submitted!");
       } else {
         // Mode CRÉATION
-        res = await activityApi.create(form);
+        res = await activityApi.create(dataToSubmit);
         const activityId = res.data.id;
         if (!asDraft) {
           await activityApi.submit(activityId);
@@ -181,6 +204,7 @@ export default function ActivityMultiStepForm() {
     } catch (err: any) {
       const msg = err.response?.data?.error || "Failed to save activity";
       toast.error(msg);
+      console.error("[ACTIVITY_FORM] Submit error:", err);
     } finally {
       setSubmitting(false);
     }
@@ -410,7 +434,7 @@ export default function ActivityMultiStepForm() {
           <Section title="Locations" icon="📍" stepIdx={1} items={
             form.locations.map((l, i) => ({
               label: `Location ${i + 1}`,
-              value: [l.city, l.region, l.country].filter(Boolean).join(", ") + (l.dateStart ? ` — ${l.dateStart}${l.dateEnd ? ` to ${l.dateEnd}` : ""}` : ""),
+              value: [l.cityId, l.regionId, l.countryId].filter(Boolean).join(", ") + (l.dateStart ? ` — ${l.dateStart}${l.dateEnd ? ` to ${l.dateEnd}` : ""}` : ""),
             }))
           } />
           <Section title="Classification" icon="🏷️" stepIdx={2} items={[

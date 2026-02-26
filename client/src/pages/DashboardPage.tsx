@@ -16,6 +16,32 @@ import {
   Area,
 } from "recharts";
 
+// ─── UTILITIES ───
+/**
+ * Convertit une date au format ISO (YYYY-MM-DD) en format d'affichage (DD/MM/YYYY)
+ */
+const formatDateDisplay = (dateStr: string): string => {
+  if (!dateStr) return "";
+  const date = new Date(dateStr + "T00:00:00");
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
+/**
+ * Convertit une date du format d'affichage (DD/MM/YYYY) en format ISO (YYYY-MM-DD)
+ */
+const parseDateFromDDMMYYYY = (dateStr: string): string => {
+  if (!dateStr) return "";
+  const parts = dateStr.split("/");
+  if (parts.length !== 3) return "";
+  const day = String(parts[0]).padStart(2, "0");
+  const month = String(parts[1]).padStart(2, "0");
+  const year = parts[2];
+  return `${year}-${month}-${day}`;
+};
+
 // ─── INTERFACES ───
 interface DashboardStats {
   totalActivities: number;
@@ -229,18 +255,26 @@ export default function DashboardPage() {
             <div>
               <label className="text-xs text-gray-400 block mb-1">From Date</label>
               <input
-                  type="date"
-                  value={filters.dateFrom}
-                  onChange={(e) => setFilters((p) => ({ ...p, dateFrom: e.target.value }))}
+                  type="text"
+                  placeholder="DD/MM/YYYY"
+                  value={formatDateDisplay(filters.dateFrom)}
+                  onChange={(e) => {
+                    const isoDate = parseDateFromDDMMYYYY(e.target.value);
+                    setFilters((p) => ({ ...p, dateFrom: isoDate }));
+                  }}
                   className="w-full bg-gray-700 border border-gray-600 rounded text-white text-sm px-2 py-1.5 focus:border-blue-500 focus:outline-none"
               />
             </div>
             <div>
               <label className="text-xs text-gray-400 block mb-1">To Date</label>
               <input
-                  type="date"
-                  value={filters.dateTo}
-                  onChange={(e) => setFilters((p) => ({ ...p, dateTo: e.target.value }))}
+                  type="text"
+                  placeholder="DD/MM/YYYY"
+                  value={formatDateDisplay(filters.dateTo)}
+                  onChange={(e) => {
+                    const isoDate = parseDateFromDDMMYYYY(e.target.value);
+                    setFilters((p) => ({ ...p, dateTo: isoDate }));
+                  }}
                   className="w-full bg-gray-700 border border-gray-600 rounded text-white text-sm px-2 py-1.5 focus:border-blue-500 focus:outline-none"
               />
             </div>
