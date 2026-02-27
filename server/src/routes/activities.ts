@@ -2,8 +2,6 @@ import { Router, Request, Response } from "express";
 import { PrismaClient, Prisma } from "@prisma/client";
 import { authenticate, authorize, authorizeProject } from "../middleware/auth";
 import { createActivitySchema, updateActivitySchema, validateActivitySchema, activityFilterSchema } from "../utils/validation";
-import { logAudit, diffChanges } from "../services/audit";
-import emailService from "../services/emailService";
 
 const prisma = new PrismaClient();
 export const activityRouter = Router();
@@ -95,6 +93,7 @@ activityRouter.get("/:id", async (req: Request, res: Response) => {
     if (!activity) return res.status(404).json({ error: "Activity not found" });
     res.json(activity);
   } catch (err) {
+    console.error("[ACTIVITIES] Get error:", err);
     res.status(500).json({ error: "Failed to fetch activity" });
   }
 });
@@ -116,7 +115,6 @@ activityRouter.post("/", authorizeProject(), async (req: Request, res: Response)
       data: {
         ...basicData,
         createdById: req.user!.userId,
-        // Conversion sécurisée des dates au niveau Activity
         activityStartDate: locationData[0]?.dateStart ? new Date(locationData[0].dateStart) : null,
         activityEndDate: locationData[0]?.dateEnd ? new Date(locationData[0].dateEnd) : null,
         funders: { create: funderIds.map((id: string) => ({ funder: { connect: { id } } })) },
@@ -130,11 +128,21 @@ activityRouter.post("/", authorizeProject(), async (req: Request, res: Response)
             city: loc.cityId ? { connect: { id: loc.cityId } } : undefined
           }))
         }
+      },
+      include: {
+        project: true,
+        createdBy: { select: { id: true, name: true, email: true } },
+        locations: { include: { country: true, region: true, city: true } },
+        funders: { include: { funder: true } },
+        activityTypes: { include: { activityType: true } },
+        thematicFocus: { include: { thematic: true } },
+        targetGroups: { include: { group: true } }
       }
     });
 
     res.status(201).json(activity);
   } catch (err) {
+    console.error("[ACTIVITIES] Create error:", err);
     res.status(500).json({ error: "Failed to create activity" });
   }
 });
@@ -168,35 +176,6 @@ activityRouter.put("/:id", async (req: Request, res: Response) => {
       targetGroups: groupIds = [],
       ...rest
     } = data as any;
-
-    // ⬇️ ⬇️ ⬇️ INSÈRE LE CODE ICI ⬇️ ⬇️ ⬇️
-    // ✅ VALIDATION: Vérifier que tous les IDs existent
-    const allIds = [
-      ...funderIds,
-      ...activityTypeIds,
-      ...thematicIds,
-      ...groupIds,
-      ...(locationData.flatMap((loc: any) => [loc.countryId, loc.regionId, loc.cityId].filter(Boolean)) || [])
-    ];
-
-    if (allIds.length > 0) {
-      const existingReferences = await prisma.referenceData.findMany({
-        where: { id: { in: allIds } },
-        select: { id: true }
-      });
-
-      const existingIds = new Set(existingReferences.map(r => r.id));
-      const missingIds = allIds.filter(id => !existingIds.has(id));
-
-      if (missingIds.length > 0) {
-        console.error("[ACTIVITIES] Missing ReferenceData IDs:", missingIds);
-        return res.status(400).json({
-          error: "Invalid reference data IDs",
-          missingIds
-        });
-      }
-    }
-    // ⬆️ ⬆️ ⬆️ FIN DU CODE À INSÉRER ⬆️ ⬆️ ⬆️
 
     // ✅ Whitelist des champs valides du schema
     const validData = {
@@ -253,45 +232,58 @@ activityRouter.put("/:id", async (req: Request, res: Response) => {
             city: loc.cityId ? { connect: { id: loc.cityId } } : undefined
           }))
         }
+      },
+      include: {
+        project: true,
+        createdBy: { select: { id: true, name: true, email: true } },
+        locations: { include: { country: true, region: true, city: true } },
+        funders: { include: { funder: true } },
+        activityTypes: { include: { activityType: true } },
+        thematicFocus: { include: { thematic: true } },
+        targetGroups: { include: { group: true } }
       }
     });
 
     res.json(activity);
   } catch (err) {
-    console.error("[ACTIVITIES] Update error details:", err);
+    console.error("[ACTIVITIES] Update error:", err);
     res.status(500).json({ error: "Failed to update activity" });
   }
 });
 
 // ─── STATUS & DELETE ROUTES ───
 activityRouter.post("/:id/submit", async (req, res) => {
-  const updated = await prisma.activity.update({
-    where: { id: req.params.id },
-    data: { status: "SUBMITTED" }
-  });
-  res.json(updated);
+  try {
+    const updated = await prisma.activity.update({
+      where: { id: req.params.id },
+      data: { status: "SUBMITTED" }
+    });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to submit activity" });
+  }
 });
 
 activityRouter.post("/:id/validate", authorize("ADMIN", "MANAGER"), async (req, res) => {
-  const { status, rejectionReason } = validateActivitySchema.parse(req.body);
-  const updated = await prisma.activity.update({
-    where: { id: req.params.id },
-    data: { status, validatedById: req.user!.userId, rejectionReason: status === "REJECTED" ? rejectionReason : null }
-  });
-  res.json(updated);
+  try {
+    const { status, rejectionReason } = validateActivitySchema.parse(req.body);
+    const updated = await prisma.activity.update({
+      where: { id: req.params.id },
+      data: { status, validatedById: req.user!.userId, rejectionReason: status === "REJECTED" ? rejectionReason : null }
+    });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to validate activity" });
+  }
 });
 
 activityRouter.delete("/:id", authorize("ADMIN"), async (req, res) => {
-  await prisma.activity.delete({ where: { id: req.params.id } });
-  res.json({ success: true });
-});
-
-// ─── DEBUG: GET all reference data ───
-activityRouter.get("/debug/references", async (req: Request, res: Response) => {
-  const refs = await prisma.referenceData.findMany({
-    select: { id: true, category: true, name: true }
-  });
-  res.json(refs);
+  try {
+    await prisma.activity.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to delete activity" });
+  }
 });
 
 export default activityRouter;

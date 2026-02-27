@@ -167,7 +167,7 @@ export default function LocationBlock({
                     </label>
                     <input
                         type="date"
-                        value={loc.dateStart}
+                        value={loc.dateStart || ""}
                         onChange={(e) => updateLoc(i, "dateStart", e.target.value)}
                         className="input-field text-xs"
                     />
@@ -178,7 +178,7 @@ export default function LocationBlock({
                     </label>
                     <input
                         type="date"
-                        value={loc.dateEnd}
+                        value={loc.dateEnd || ""}
                         onChange={(e) => updateLoc(i, "dateEnd", e.target.value)}
                         className="input-field text-xs"
                     />
