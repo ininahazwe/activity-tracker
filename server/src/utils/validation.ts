@@ -114,4 +114,6 @@ export const activityFilterSchema = paginationSchema.extend({
   search: z.string().optional(),
   dateFrom: z.string().optional(),
   dateTo: z.string().optional(),
+  dateStart: z.string().optional(),
+  dateEnd: z.string().optional(),
 });

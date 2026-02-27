@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { PrismaClient, Prisma } from "@prisma/client";
+import { z } from "zod";
 import { authenticate, authorize, authorizeProject } from "../middleware/auth";
 import { createActivitySchema, updateActivitySchema, validateActivitySchema, activityFilterSchema } from "../utils/validation";
 
@@ -11,8 +12,11 @@ activityRouter.use(authenticate);
 // ─── GET /api/activities ───
 activityRouter.get("/", async (req: Request, res: Response) => {
   try {
+    console.log("[ACTIVITIES] Raw query params:", req.query);
     const filters = activityFilterSchema.parse(req.query);
+    console.log("[ACTIVITIES] Parsed filters:", filters);
     const { page, limit, sortBy, sortOrder, projectId, status, search, country, funder, thematic } = filters;
+    console.log("[ACTIVITIES] Extracted search param:", search);
 
     const where: Prisma.ActivityWhereInput = {};
 
@@ -37,14 +41,18 @@ activityRouter.get("/", async (req: Request, res: Response) => {
     }
 
     if (status) where.status = status as any;
-    if (search) {
-      where.activityTitle = { contains: search, mode: "insensitive" } as any;
+    if (search && search.trim()) {
+      console.log("[ACTIVITIES] Applying search filter:", search.trim());
+      where.activityTitle = {
+        startsWith: search.trim()
+      } as any;
     }
 
     if (country) where.locations = { some: { countryId: country } };
     if (funder) where.funders = { some: { funderId: funder } };
     if (thematic) where.thematicFocus = { some: { thematicId: thematic } };
 
+    // ✅ Utiliser directement where pour count (plus besoin de remove mode)
     const [activities, total] = await Promise.all([
       prisma.activity.findMany({
         where,
@@ -70,7 +78,11 @@ activityRouter.get("/", async (req: Request, res: Response) => {
     });
   } catch (err) {
     console.error("[ACTIVITIES] List error:", err);
-    res.status(500).json({ error: "Failed to fetch activities" });
+    if (err instanceof z.ZodError) {
+      console.error("[ACTIVITIES] Validation error details:", err.errors);
+      return res.status(400).json({ error: "Invalid filters", details: err.errors });
+    }
+    res.status(500).json({ error: "Failed to fetch activities", details: String(err) });
   }
 });
 
