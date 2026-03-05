@@ -1,0 +1,332 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ───
+
+enum Role {
+  ADMIN
+  MANAGER
+  FIELD
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  INACTIVE
+}
+
+enum ActivityStatus {
+  DRAFT
+  SUBMITTED
+  VALIDATED
+  REJECTED
+}
+
+enum FinanceStatus {
+  NEW
+  CONTINUOUS
+}
+
+// ─── USER ───
+
+model User {
+  id                String       @id @default(cuid())
+  email             String       @unique
+  name              String
+  passwordHash      String       @map("password_hash")
+  role              Role         @default(FIELD)
+  status            UserStatus   @default(ACTIVE)
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  invitationToken   String?      @unique
+  invitationExpires DateTime?
+
+  // Relations
+  projects          UserProject[]
+  activities        Activity[]   @relation("CreatedBy")
+  validations       Activity[]   @relation("ValidatedBy")
+  auditLogs         AuditLog[]
+
+  @@map("users")
+}
+
+// ─── PROJECT ───
+
+model Project {
+  id            String        @id @default(cuid())
+  name          String        @unique
+  slug          String        @unique
+  description   String?
+  extraFields   Json?         @map("extra_fields")
+  isActive      Boolean       @default(true) @map("is_active")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  users         UserProject[]
+  activities    Activity[]
+  finances      Finance[]
+
+  @@map("projects")
+}
+
+model UserProject {
+  userId    String  @map("user_id")
+  projectId String  @map("project_id")
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([userId, projectId])
+  @@map("user_projects")
+}
+
+// ─── ACTIVITY (REMODELED) ───
+
+model Activity {
+  id                    String          @id @default(cuid())
+  projectId             String          @map("project_id")
+  createdById           String          @map("created_by_id")
+  validatedById         String?         @map("validated_by_id")
+  status                ActivityStatus  @default(DRAFT)
+  rejectionReason       String?         @map("rejection_reason")
+
+  // ─── BASIC IDENTIFICATION ───
+  activityTitle         String          @map("activity_title")
+  projectName           String?         @map("project_name")
+
+  // ─── PROGRAMME AREA (Foreign Key to ReferenceData) ───
+  programmeAreaId       String?         @map("programme_area_id")
+  programmeArea         ReferenceData?  @relation("ActivityProgrammeArea", fields: [programmeAreaId], references: [id])
+
+  // ─── DATES ───
+  activityStartDate     DateTime?       @map("activity_start_date")
+  activityEndDate       DateTime?       @map("activity_end_date")
+
+  // ─── LOCATIONS (Many-to-Many via ActivityLocation) ───
+  locations             ActivityLocation[]
+
+  // ─── FUNDERS (Many-to-Many via ActivityFunder) ───
+  funders               ActivityFunder[]
+
+  // ─── ACTIVITY TYPES (Many-to-Many via ActivityType) ───
+  activityTypes         ActivityActivityType[]
+
+  // ─── THEMATIC FOCUS (Many-to-Many via ActivityThematicFocus) ───
+  thematicFocus         ActivityThematicFocus[]
+
+  // ─── TARGET GROUPS (Many-to-Many via ActivityTargetGroup) ───
+  targetGroups          ActivityTargetGroup[]
+
+  // ─── ATTENDEES & DEMOGRAPHICS ───
+  totalAttendees        Int?            @default(0) @map("total_attendees")
+  maleCount             Int?            @default(0) @map("male_count")
+  femaleCount           Int?            @default(0) @map("female_count")
+  nonBinaryCount        Int?            @default(0) @map("non_binary_count")
+  ageUnder25            Int?            @default(0) @map("age_under_25")
+  age25to40             Int?            @default(0) @map("age_25_to_40")
+  age40plus             Int?            @default(0) @map("age_40_plus")
+  disabilityYes         Int?            @default(0) @map("disability_yes")
+  disabilityNo          Int?            @default(0) @map("disability_no")
+
+  // ─── OUTCOMES & IMPACTS ───
+  immediateOutcomes     String?         @map("immediate_outcomes") @db.Text
+  skillsGained          String?         @map("skills_gained") @db.Text
+  actionsTaken          String?         @map("actions_taken") @db.Text
+  policiesInfluenced    String?         @map("policies_influenced") @db.Text
+  institutionalChanges  String?         @map("institutional_changes") @db.Text
+  commitmentsSecured    String?         @map("commitments_secured") @db.Text
+
+  // ─── MEDIA & PUBLICATIONS ───
+  mediaMentions         String?         @map("media_mentions") @db.Text
+  mediaLinks            String?         @map("media_links") @db.Text
+  publicationsProduced  String?         @map("publications_produced") @db.Text
+
+  // ─── GENDER & INCLUSION ───
+  genderOutcomes        String?         @map("gender_outcomes") @db.Text
+  inclusionChallenges   String?         @map("inclusion_challenges") @db.Text
+
+  // ─── PARTNERSHIPS ───
+  existingPartnerships  String?         @map("existing_partnerships") @db.Text
+  newPartnerships       String?         @map("new_partnerships") @db.Text
+
+  // Timestamps
+  createdAt             DateTime        @default(now()) @map("created_at")
+  updatedAt             DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  project               Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy             User            @relation("CreatedBy", fields: [createdById], references: [id])
+  validatedBy           User?           @relation("ValidatedBy", fields: [validatedById], references: [id])
+
+  @@index([projectId])
+  @@index([status])
+  @@index([createdById])
+  @@index([createdAt])
+  @@index([programmeAreaId])
+  @@map("activities")
+}
+
+// ─── ACTIVITY LOCATION (Many-to-Many) ───
+
+model ActivityLocation {
+  id          String   @id @default(cuid())
+  activityId  String   @map("activity_id")
+  countryId   String?  @map("country_id")
+  regionId    String?  @map("region_id")
+  cityId      String?  @map("city_id")
+
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  country     ReferenceData? @relation("ActivityLocationCountry", fields: [countryId], references: [id])
+  region      ReferenceData? @relation("ActivityLocationRegion", fields: [regionId], references: [id])
+  city        ReferenceData? @relation("ActivityLocationCity", fields: [cityId], references: [id])
+
+  @@unique([activityId, countryId, regionId, cityId])
+  @@index([activityId])
+  @@index([countryId])
+  @@map("activity_locations")
+}
+
+// ─── ACTIVITY FUNDER (Many-to-Many) ───
+
+model ActivityFunder {
+  id          String   @id @default(cuid())
+  activityId  String   @map("activity_id")
+  funderId    String   @map("funder_id")
+
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  funder      ReferenceData @relation("ActivityFunder", fields: [funderId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, funderId])
+  @@index([activityId])
+  @@map("activity_funders")
+}
+
+// ─── ACTIVITY TYPE (Many-to-Many) ───
+
+model ActivityActivityType {
+  id            String   @id @default(cuid())
+  activityId    String   @map("activity_id")
+  activityTypeId String   @map("activity_type_id")
+
+  activity      Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  activityType  ReferenceData @relation("ActivityActivityType", fields: [activityTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, activityTypeId])
+  @@index([activityId])
+  @@map("activity_activity_types")
+}
+
+// ─── ACTIVITY THEMATIC FOCUS (Many-to-Many) ───
+
+model ActivityThematicFocus {
+  id           String   @id @default(cuid())
+  activityId   String   @map("activity_id")
+  thematicId   String   @map("thematic_id")
+
+  activity     Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  thematic     ReferenceData @relation("ActivityThematicFocus", fields: [thematicId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, thematicId])
+  @@index([activityId])
+  @@map("activity_thematic_focus")
+}
+
+// ─── ACTIVITY TARGET GROUP (Many-to-Many) ───
+
+model ActivityTargetGroup {
+  id         String   @id @default(cuid())
+  activityId String   @map("activity_id")
+  groupId    String   @map("group_id")
+
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  group      ReferenceData @relation("ActivityTargetGroup", fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, groupId])
+  @@index([activityId])
+  @@map("activity_target_groups")
+}
+
+// ─── FINANCE ───
+
+model Finance {
+  id          String         @id @default(cuid())
+  projectId   String         @map("project_id")
+  funder      String
+  amount      Float
+  currency    String         @default("USD")
+  status      FinanceStatus  @default(NEW)
+  year        Int
+  notes       String?        @db.Text
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([year])
+  @@map("finances")
+}
+
+// ─── AUDIT LOG ───
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  changes     Json?
+  ipAddress   String?  @map("ip_address")
+  timestamp   DateTime @default(now())
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
+
+// ─── REFERENCE DATA ───
+// Categories: programme_area, activity_type, thematic_focus, target_group, country, region, city, funder
+
+model ReferenceData {
+  id        String     @id @default(cuid())
+  category  String
+  name      String
+  description String?
+  parentId  String?    @map("parent_id")
+  sortOrder Int?       @default(0) @map("sort_order")
+  isActive  Boolean    @default(true) @map("is_active")
+
+  // Self-relations for hierarchical data (country -> region -> city)
+  parent    ReferenceData?  @relation("ParentChild", fields: [parentId], references: [id], onDelete: Cascade)
+  children  ReferenceData[] @relation("ParentChild")
+
+  // Activity relations
+  activitiesProgrammeArea   Activity[] @relation("ActivityProgrammeArea")
+  activityLocationsCountry  ActivityLocation[] @relation("ActivityLocationCountry")
+  activityLocationsRegion   ActivityLocation[] @relation("ActivityLocationRegion")
+  activityLocationsCity     ActivityLocation[] @relation("ActivityLocationCity")
+  activityFunders           ActivityFunder[] @relation("ActivityFunder")
+  activityActivityTypes     ActivityActivityType[] @relation("ActivityActivityType")
+  activityThematicFocus     ActivityThematicFocus[] @relation("ActivityThematicFocus")
+  activityTargetGroups      ActivityTargetGroup[] @relation("ActivityTargetGroup")
+
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@index([parentId])
+  @@unique([category, name])
+  @@map("reference_data")
+}

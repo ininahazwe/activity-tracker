@@ -5,7 +5,7 @@ import MultiSelect from "../common/MultiSelect";
 import LocationBlock from "./LocationBlock";
 import { useReferenceData } from "@/hooks/useReferenceData.ts";
 import { ActivityFormData } from "@/types";
-import { activityApi } from "@/utils/api.ts";
+import { activityApi, projectApi } from "@/utils/api.ts";
 
 const STEPS = [
     { id: "identity", label: "Identification", icon: "📋", desc: "Project & activity basics" },
@@ -88,7 +88,7 @@ export default function ActivityMultiStepForm() {
     useEffect(() => {
         const getProjects = async () => {
             try {
-                const { data } = await activityApi.list();
+                const { data } = await projectApi.list();
                 setProjects(data || []);
             } catch (err) {
                 console.error("Failed to load projects");
@@ -185,7 +185,11 @@ export default function ActivityMultiStepForm() {
     if (loadingActivity) {
         return <div className="text-center py-10">Loading activity...</div>;
     }
-
+    console.log("=== FORM DATA STRUCTURES ===");
+    console.log("activityTypes:", form.activityTypes[0]);
+    console.log("targetGroups:", form.targetGroups[0]);
+    console.log("thematicFocus:", form.thematicFocus[0]);
+    console.log("funders:", form.funders[0]);
     // Render functions...
     const renderIdentity = () => {
         const activeProject = projects.find((p) => p.id === form.projectId);

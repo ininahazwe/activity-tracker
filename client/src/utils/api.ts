@@ -139,9 +139,64 @@ function cleanParams(params?: Record<string, any>): Record<string, any> {
 }
 
 /**
+ * ✅ FONCTION EXHAUSTIVE: Extrait l'ID d'un item
+ * Gère TOUS les formats possibles pour les 4 champs many-to-many
+ */
+function extractIdValue(item: any): string {
+  // Cas 1: String simple (déjà un ID)
+  if (typeof item === 'string') {
+    return item;
+  }
+
+  // Cas 2: MultiSelect {label, value}
+  if (item && typeof item === 'object' && item.value && typeof item.value === 'string') {
+    return item.value;
+  }
+
+  // Cas 3: Structure JOIN table avec champs ID directs
+  // ✅ EXHAUSTIF: Tous les noms de champs ID possibles
+  if (item && typeof item === 'object') {
+    // activityTypes: activityTypeId
+    if (item.activityTypeId && typeof item.activityTypeId === 'string') return item.activityTypeId;
+    // targetGroups: groupId
+    if (item.groupId && typeof item.groupId === 'string') return item.groupId;
+    // thematicFocus: thematicId
+    if (item.thematicId && typeof item.thematicId === 'string') return item.thematicId;
+    // funders: funderId
+    if (item.funderId && typeof item.funderId === 'string') return item.funderId;
+
+    // Fallback: anciennes variantes possibles
+    if (item.typeId && typeof item.typeId === 'string') return item.typeId;
+    if (item.focusId && typeof item.focusId === 'string') return item.focusId;
+  }
+
+  // Cas 4: Structure JOIN table avec objets imbriqués
+  // ✅ EXHAUSTIF: Tous les noms d'objets imbriqués possibles
+  if (item && typeof item === 'object') {
+    // activityTypes: activityType.id
+    if (item.activityType?.id && typeof item.activityType.id === 'string') return item.activityType.id;
+    // targetGroups: group.id
+    if (item.group?.id && typeof item.group.id === 'string') return item.group.id;
+    // thematicFocus: thematic.id
+    if (item.thematic?.id && typeof item.thematic.id === 'string') return item.thematic.id;
+    // funders: funder.id
+    if (item.funder?.id && typeof item.funder.id === 'string') return item.funder.id;
+
+    // Fallback: anciennes variantes possibles
+    if (item.type?.id && typeof item.type.id === 'string') return item.type.id;
+    if (item.focus?.id && typeof item.focus.id === 'string') return item.focus.id;
+  }
+
+  // Cas 5: Objet simple avec .id
+  if (item && typeof item === 'object' && item.id && typeof item.id === 'string') {
+    return item.id;
+  }
+
+  return String(item || '');
+}
+
+/**
  * ✅ FONCTION CORRIGÉE: Prépare les données pour l'envoi à l'API
- * Les données du formulaire sont déjà au bon format (IDs simples, pas d'objets imbriqués)
- * On fait juste un pass-through en nettoyant les valeurs nullish
  */
 function cleanActivityData(data: any): any {
   const cleaned = {
@@ -152,11 +207,18 @@ function cleanActivityData(data: any): any {
     consortium: data.consortium || "",
     implementingPartners: data.implementingPartners || "",
     locations: extractLocationIds(data.locations),
-    // ✅ Les IDs sont déjà des strings, on les passe directement
-    activityTypes: Array.isArray(data.activityTypes) ? data.activityTypes.filter(Boolean) : [],
-    targetGroups: Array.isArray(data.targetGroups) ? data.targetGroups.filter(Boolean) : [],
-    thematicFocus: Array.isArray(data.thematicFocus) ? data.thematicFocus.filter(Boolean) : [],
-    funders: Array.isArray(data.funders) ? data.funders.filter(Boolean) : [],
+    activityTypes: Array.isArray(data.activityTypes)
+        ? data.activityTypes.map(extractIdValue).filter(Boolean)
+        : [],
+    targetGroups: Array.isArray(data.targetGroups)
+        ? data.targetGroups.map(extractIdValue).filter(Boolean)
+        : [],
+    thematicFocus: Array.isArray(data.thematicFocus)
+        ? data.thematicFocus.map(extractIdValue).filter(Boolean)
+        : [],
+    funders: Array.isArray(data.funders)
+        ? data.funders.map(extractIdValue).filter(Boolean)
+        : [],
     maleCount: parseInt(data.maleCount) || 0,
     femaleCount: parseInt(data.femaleCount) || 0,
     nonBinaryCount: parseInt(data.nonBinaryCount) || 0,
