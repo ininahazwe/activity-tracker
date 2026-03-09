@@ -28,5 +28,8 @@
     "url": "https://github.com/yourusername/activity-tracker-pro.git"
   },
   "author": "Will",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "resend": "^6.9.3"
+  }
 }

@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import jwt, { Secret } from "jsonwebtoken";
 import { authenticate, AuthPayload } from "../middleware/auth";
 
 const prisma = new PrismaClient();
@@ -56,7 +56,7 @@ authRouter.post("/login", async (req: Request, res: Response): Promise<void> => 
     };
 
     console.log("[AUTH/LOGIN] Création JWT...");
-    const jwtSecret = process.env.JWT_SECRET;
+    const jwtSecret = process.env.JWT_SECRET as Secret;
     console.log(`[AUTH/LOGIN] JWT_SECRET présent: ${jwtSecret ? "OUI" : "NON"}`);
 
     if (!jwtSecret) {
@@ -67,11 +67,11 @@ authRouter.post("/login", async (req: Request, res: Response): Promise<void> => 
 
     const token = jwt.sign(payload, jwtSecret, {
       expiresIn: process.env.JWT_EXPIRES_IN || "7d",
-    });
+    } as jwt.SignOptions);
 
     const refreshToken = jwt.sign(payload, jwtSecret, {
       expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "30d",
-    });
+    } as jwt.SignOptions);
 
     console.log(`[AUTH/LOGIN] ✅ Login réussi pour ${email}`);
 
@@ -107,7 +107,7 @@ authRouter.post("/refresh", async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    const jwtSecret = process.env.JWT_SECRET;
+    const jwtSecret = process.env.JWT_SECRET as Secret;
     if (!jwtSecret) {
       console.error("JWT_SECRET is not defined");
       res.status(500).json({ error: "Internal server error" });
@@ -119,7 +119,7 @@ authRouter.post("/refresh", async (req: Request, res: Response): Promise<void> =
     const newToken = jwt.sign(
         { userId: payload.userId, email: payload.email, role: payload.role },
         jwtSecret,
-        { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+        { expiresIn: process.env.JWT_EXPIRES_IN || "7d" } as jwt.SignOptions
     );
 
     res.json({ token: newToken });

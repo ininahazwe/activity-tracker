@@ -2,7 +2,7 @@ import axios from "axios";
 import qs from "qs";
 
 export const api = axios.create({
-  baseURL: "http://localhost:3000/api",
+  baseURL: "https://tracker.mfwa.org/api",
   headers: { "Content-Type": "application/json" },
   paramsSerializer: (params) => {
     return qs.stringify(params, { arrayFormat: 'repeat' });
@@ -144,45 +144,47 @@ function cleanParams(params?: Record<string, any>): Record<string, any> {
  * On fait juste un pass-through en nettoyant les valeurs nullish
  */
 function cleanActivityData(data: any): any {
-  const cleaned = {
-    projectId: data.projectId || "",
-    activityTitle: data.activityTitle || "",
-    projectName: data.projectName || "",
-    projectTitle: data.projectTitle || "",
-    consortium: data.consortium || "",
-    implementingPartners: data.implementingPartners || "",
-    locations: extractLocationIds(data.locations),
-    // ✅ Les IDs sont déjà des strings, on les passe directement
-    activityTypes: Array.isArray(data.activityTypes) ? data.activityTypes.filter(Boolean) : [],
-    targetGroups: Array.isArray(data.targetGroups) ? data.targetGroups.filter(Boolean) : [],
-    thematicFocus: Array.isArray(data.thematicFocus) ? data.thematicFocus.filter(Boolean) : [],
-    funders: Array.isArray(data.funders) ? data.funders.filter(Boolean) : [],
-    maleCount: parseInt(data.maleCount) || 0,
-    femaleCount: parseInt(data.femaleCount) || 0,
-    nonBinaryCount: parseInt(data.nonBinaryCount) || 0,
-    ageUnder25: parseInt(data.ageUnder25) || 0,
-    age25to40: parseInt(data.age25to40) || 0,
-    age40plus: parseInt(data.age40plus) || 0,
-    disabilityYes: parseInt(data.disabilityYes) || 0,
-    disabilityNo: parseInt(data.disabilityNo) || 0,
-    keyOutputs: data.keyOutputs || "",
-    immediateOutcomes: data.immediateOutcomes || "",
-    skillsGained: data.skillsGained || "",
-    actionsTaken: data.actionsTaken || "",
-    meansOfVerification: data.meansOfVerification || "",
-    evidenceAvailable: data.evidenceAvailable || "",
-    policiesInfluenced: data.policiesInfluenced || "",
-    institutionalChanges: data.institutionalChanges || "",
-    commitmentsSecured: data.commitmentsSecured || "",
-    mediaMentions: data.mediaMentions || "",
-    publicationsProduced: data.publicationsProduced || "",
-    genderOutcomes: data.genderOutcomes || "",
-    inclusionMarginalised: data.inclusionMarginalised || "",
-    womenLeadership: data.womenLeadership || "",
-    newPartnerships: data.newPartnerships || "",
-    existingPartnerships: data.existingPartnerships || "",
-  };
+  // Extraire les IDs depuis les objets {label, value} du MultiSelect
+  const extractIds = (items: any[]) =>
+      Array.isArray(items) ? items.map((i: any) => typeof i === 'string' ? i : i.value).filter(Boolean) : [];
 
+  const cleaned = {
+    // ── Champs existants en base ──────────────────────────────────────────
+    projectId:            data.projectId || "",
+    activityTitle:        data.activityTitle || "",
+    projectName:          data.projectName || "",
+    locations:            extractLocationIds(data.locations),
+    // Relations many-to-many
+    activityTypes:        extractIds(data.activityTypes),
+    targetGroups:         extractIds(data.targetGroups),
+    thematicFocus:        extractIds(data.thematicFocus),
+    funders:              extractIds(data.funders),
+    // Participants
+    maleCount:            parseInt(data.maleCount) || 0,
+    femaleCount:          parseInt(data.femaleCount) || 0,
+    nonBinaryCount:       parseInt(data.nonBinaryCount) || 0,
+    ageUnder25:           parseInt(data.ageUnder25) || 0,
+    age25to40:            parseInt(data.age25to40) || 0,
+    age40plus:            parseInt(data.age40plus) || 0,
+    disabilityYes:        parseInt(data.disabilityYes) || 0,
+    disabilityNo:         parseInt(data.disabilityNo) || 0,
+    // Résultats (champs existants en base)
+    immediateOutcomes:    data.immediateOutcomes || "",
+    skillsGained:         data.skillsGained || "",
+    actionsTaken:         data.actionsTaken || "",
+    policiesInfluenced:   data.policiesInfluenced || "",
+    institutionalChanges: data.institutionalChanges || "",
+    commitmentsSecured:   data.commitmentsSecured || "",
+    mediaMentions:        data.mediaMentions || "",
+    publicationsProduced: data.publicationsProduced || "",
+    genderOutcomes:       data.genderOutcomes || "",
+    inclusionChallenges:  data.inclusionMarginalised || "",  // mapping frontend → base
+    newPartnerships:      data.newPartnerships || "",
+    existingPartnerships: data.existingPartnerships || "",
+    // ── Exclus (inexistants en base) ─────────────────────────────────────
+    // projectTitle, consortium, implementingPartners
+    // keyOutputs, meansOfVerification, evidenceAvailable, womenLeadership
+  };
   return cleaned;
 }
 

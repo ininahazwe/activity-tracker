@@ -36,14 +36,12 @@ export const createActivitySchema = z.object({
   projectId: z.string(),
   activityTitle: z.string().min(3, "Title must be at least 3 characters").max(500),
   projectName: z.string().max(200).optional(),
-  projectTitle: z.string().max(200).optional(),
-  consortium: z.string().max(100).optional(),
-  implementingPartners: z.string().max(500).optional(),
+  // ❌ Supprimés : projectTitle, consortium, implementingPartners (inexistants en base)
 
   locations: z.array(locationSchema).min(1, "At least one location required"),
 
   activityTypes: z.array(z.string()).min(1, "At least one activity type required"),
-  targetGroups: z.array(z.string()).min(1, "At least one target group required"),
+  targetGroups: z.array(z.string()).optional().default([]),
   thematicFocus: z.array(z.string()).min(1, "At least one thematic focus required"),
   funders: z.array(z.string()).min(1, "At least one funder required"),
 
@@ -56,12 +54,10 @@ export const createActivitySchema = z.object({
   disabilityYes: z.number().int().min(0).optional().default(0),
   disabilityNo: z.number().int().min(0).optional().default(0),
 
-  keyOutputs: z.string().optional().default(""),
+  // ❌ Supprimés : keyOutputs, meansOfVerification, evidenceAvailable (inexistants en base)
   immediateOutcomes: z.string().optional().default(""),
   skillsGained: z.string().optional().default(""),
   actionsTaken: z.string().optional().default(""),
-  meansOfVerification: z.string().optional().default(""),
-  evidenceAvailable: z.string().optional().default(""),
 
   policiesInfluenced: z.string().optional().default(""),
   institutionalChanges: z.string().optional().default(""),
@@ -71,8 +67,8 @@ export const createActivitySchema = z.object({
   publicationsProduced: z.string().optional().default(""),
 
   genderOutcomes: z.string().optional().default(""),
-  inclusionMarginalised: z.string().optional().default(""),
-  womenLeadership: z.string().optional().default(""),
+  inclusionChallenges: z.string().optional().default(""),  // ✅ nom correct en base
+  // ❌ Supprimé : womenLeadership (inexistant en base)
   newPartnerships: z.string().optional().default(""),
   existingPartnerships: z.string().optional().default(""),
 });

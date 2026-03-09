@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Initialiser Resend seulement si la clé API est disponible
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 const SMTP_FROM = process.env.SMTP_FROM || 'noreply@tracker.com';
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'support@tracker.com';
@@ -172,6 +173,15 @@ async function sendEmail(
     html: string,
     retryCount = 0
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    // Si Resend n'est pas configuré, log et retourner success (mode dev)
+    if (!resend) {
+        console.log(`⚠️  Resend non configuré. Email à ${to} (sujet: "${subject}") aurait été envoyé en production`);
+        return {
+            success: true,
+            error: 'Resend not configured - email not sent'
+        };
+    }
+
     try {
         const response = await resend.emails.send({
             from: SMTP_FROM,

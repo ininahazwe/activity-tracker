@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -7,7 +7,7 @@ interface AuditEntry {
   action: "CREATE" | "UPDATE" | "DELETE" | "VALIDATE" | "REJECT" | "LOGIN" | "LOGOUT";
   entityType: "Activity" | "User" | "Finance" | "Project";
   entityId: string;
-  changes?: Record<string, { old: unknown; new: unknown }>;
+  changes?: Prisma.InputJsonValue;
   ipAddress?: string;
 }
 
@@ -20,10 +20,10 @@ export async function logAudit(entry: AuditEntry) {
 }
 
 export function diffChanges(
-  original: Record<string, unknown>,
-  updated: Record<string, unknown>,
-  fields: string[]
-): Record<string, { old: unknown; new: unknown }> | undefined {
+    original: Record<string, unknown>,
+    updated: Record<string, unknown>,
+    fields: string[]
+): Prisma.InputJsonValue | undefined {
   const changes: Record<string, { old: unknown; new: unknown }> = {};
 
   for (const field of fields) {
@@ -34,5 +34,5 @@ export function diffChanges(
     }
   }
 
-  return Object.keys(changes).length > 0 ? changes : undefined;
+  return Object.keys(changes).length > 0 ? (changes as Prisma.InputJsonValue) : undefined;
 }

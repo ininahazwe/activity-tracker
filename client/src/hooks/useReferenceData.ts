@@ -14,10 +14,10 @@ interface UseReferenceReturn {
     countries: ReferenceItem[];
     regions: ReferenceItem[];
     cities: ReferenceItem[];
-    activityTypes: string[];
-    thematicFocus: string[];
-    funders: string[];
-    targetGroups: string[];
+    activityTypes: { label: string; value: string }[];
+    thematicFocus: { label: string; value: string }[];
+    funders: { label: string; value: string }[];
+    targetGroups: { label: string; value: string }[];
   };
   projects: Project[];
   loading: boolean;
@@ -49,16 +49,13 @@ export function useReferenceData(): UseReferenceReturn {
         console.log("[useReferenceData] Cities Response:", citiesResponse);
 
         // ✅ FIX: Fonction pour extraire les noms (pour les listes simples)
-        const extractNames = (data: any) => {
-          // Récupérer le tableau - peut être data.data ou directement data
+        const extractItems = (data: any) => {
           const items = Array.isArray(data) ? data : (data?.data || []);
-
-          // Vérifier que c'est bien un array avant de mapper
-          if (!Array.isArray(items)) {
-            console.warn("[useReferenceData] Expected array, got:", typeof items);
-            return [];
-          }
-          return items.map((i: any) => i.name || i) || [];
+          if (!Array.isArray(items)) return [];
+          return items.map((i: any) => ({
+            label: i.name,
+            value: i.id
+          }));
         };
 
         // ✅ FIX: Accéder correctement à .data depuis les réponses axios
@@ -76,10 +73,10 @@ export function useReferenceData(): UseReferenceReturn {
           countries: Array.isArray(countries) ? countries : [],
           regions: Array.isArray(regions) ? regions : [],
           cities: Array.isArray(cities) ? cities : [],
-          activityTypes: extractNames(actResponse?.data),
-          thematicFocus: extractNames(themesResponse?.data),
-          funders: extractNames(fundsResponse?.data),
-          targetGroups: extractNames(targetsResponse?.data),
+          activityTypes: extractItems(actResponse?.data),
+          thematicFocus: extractItems(themesResponse?.data),
+          funders: extractItems(fundsResponse?.data),
+          targetGroups: extractItems(targetsResponse?.data),
         });
 
         setProjects(Array.isArray(projects) ? projects : []);

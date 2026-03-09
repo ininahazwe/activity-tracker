@@ -189,6 +189,9 @@ activityRouter.put("/:id", async (req: Request, res: Response) => {
       ...rest
     } = data as any;
 
+    console.log("[PUT DEBUG] thematicIds reçus:", JSON.stringify(thematicIds));
+    console.log("[PUT DEBUG] funderIds reçus:", JSON.stringify(funderIds));
+
     // ✅ Whitelist des champs valides du schema
     const validData = {
       activityTitle: rest.activityTitle,
