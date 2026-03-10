@@ -8,3 +8,4 @@ build/
 .vite/
 server/node_modules.zip
 server/dist.zip
+*.zip
