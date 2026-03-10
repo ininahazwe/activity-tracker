@@ -7,7 +7,7 @@ interface AuditEntry {
   action: "CREATE" | "UPDATE" | "DELETE" | "VALIDATE" | "REJECT" | "LOGIN" | "LOGOUT";
   entityType: "Activity" | "User" | "Finance" | "Project";
   entityId: string;
-  changes?: Record<string, { old: unknown; new: unknown }>;
+  changes?: Prisma.InputJsonValue;
   ipAddress?: string;
 }
 
@@ -32,7 +32,11 @@ export function diffChanges(
     original: Record<string, unknown>,
     updated: Record<string, unknown>,
     fields: string[]
+<<<<<<< HEAD
 ): Record<string, { old: unknown; new: unknown }> | undefined {
+=======
+): Prisma.InputJsonValue | undefined {
+>>>>>>> 7fdf5b5eccaaf1b4d828249c96a635fc181e645e
   const changes: Record<string, { old: unknown; new: unknown }> = {};
 
   for (const field of fields) {
@@ -43,5 +47,9 @@ export function diffChanges(
     }
   }
 
+<<<<<<< HEAD
   return Object.keys(changes).length > 0 ? changes : undefined;
+=======
+  return Object.keys(changes).length > 0 ? (changes as Prisma.InputJsonValue) : undefined;
+>>>>>>> 7fdf5b5eccaaf1b4d828249c96a635fc181e645e
 }

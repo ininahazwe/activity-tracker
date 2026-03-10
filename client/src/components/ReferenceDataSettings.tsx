@@ -36,7 +36,7 @@ export default function ReferenceDataSettings({
     const [selectedParent, setSelectedParent] = useState<string>("");
     const token = useAuthStore((s: { token: any; }) => s.token);
 
-    const API_BASE = "http://localhost:3000/api/reference";
+    const API_BASE = "https://tracker.mfwa.org/api/reference";
 
     // ─── GET TOKEN FROM ZUSTAND OR LOCALSTORAGE ───
     const getAuthToken = (): string | null => {

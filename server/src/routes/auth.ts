@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import jwt, { Secret } from "jsonwebtoken";
 import { authenticate, AuthPayload } from "../middleware/auth";
 
 const prisma = new PrismaClient();
@@ -56,8 +56,12 @@ authRouter.post("/login", async (req: Request, res: Response): Promise<void> => 
     };
 
     console.log("[AUTH/LOGIN] Création JWT...");
+<<<<<<< HEAD
     const jwtSecret = process.env.JWT_SECRET;
     const jwtRefreshSecret = process.env.JWT_REFRESH_SECRET;
+=======
+    const jwtSecret = process.env.JWT_SECRET as Secret;
+>>>>>>> 7fdf5b5eccaaf1b4d828249c96a635fc181e645e
     console.log(`[AUTH/LOGIN] JWT_SECRET présent: ${jwtSecret ? "OUI" : "NON"}`);
     console.log(`[AUTH/LOGIN] JWT_REFRESH_SECRET présent: ${jwtRefreshSecret ? "OUI" : "NON"}`);
 
@@ -67,6 +71,7 @@ authRouter.post("/login", async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
+<<<<<<< HEAD
     const jwtExpiresIn = process.env.JWT_EXPIRES_IN || "7d";
     const jwtRefreshExpiresIn = process.env.JWT_REFRESH_EXPIRES_IN || "30d";
 
@@ -77,6 +82,15 @@ authRouter.post("/login", async (req: Request, res: Response): Promise<void> => 
     const refreshToken = jwt.sign(payload, jwtRefreshSecret, {
       expiresIn: jwtRefreshExpiresIn as string | number,
     } as any);
+=======
+    const token = jwt.sign(payload, jwtSecret, {
+      expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+    } as jwt.SignOptions);
+
+    const refreshToken = jwt.sign(payload, jwtSecret, {
+      expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "30d",
+    } as jwt.SignOptions);
+>>>>>>> 7fdf5b5eccaaf1b4d828249c96a635fc181e645e
 
     console.log(`[AUTH/LOGIN] ✅ Login réussi pour ${email}`);
 
@@ -112,11 +126,17 @@ authRouter.post("/refresh", async (req: Request, res: Response): Promise<void> =
       return;
     }
 
+<<<<<<< HEAD
     const jwtSecret = process.env.JWT_SECRET;
     const jwtRefreshSecret = process.env.JWT_REFRESH_SECRET;
 
     if (!jwtSecret || !jwtRefreshSecret) {
       console.error("JWT secrets are not defined");
+=======
+    const jwtSecret = process.env.JWT_SECRET as Secret;
+    if (!jwtSecret) {
+      console.error("JWT_SECRET is not defined");
+>>>>>>> 7fdf5b5eccaaf1b4d828249c96a635fc181e645e
       res.status(500).json({ error: "Internal server error" });
       return;
     }
@@ -128,9 +148,13 @@ authRouter.post("/refresh", async (req: Request, res: Response): Promise<void> =
     const newToken = jwt.sign(
         { userId: payload.userId, email: payload.email, role: payload.role },
         jwtSecret,
+<<<<<<< HEAD
         {
           expiresIn: jwtExpiresIn as string | number,
         } as any
+=======
+        { expiresIn: process.env.JWT_EXPIRES_IN || "7d" } as jwt.SignOptions
+>>>>>>> 7fdf5b5eccaaf1b4d828249c96a635fc181e645e
     );
 
     res.json({ token: newToken });

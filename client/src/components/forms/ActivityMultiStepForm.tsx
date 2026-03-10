@@ -88,8 +88,15 @@ export default function ActivityMultiStepForm() {
     useEffect(() => {
         const getProjects = async () => {
             try {
+<<<<<<< HEAD
                 const { data } = await projectApi.list();
                 setProjects(data || []);
+=======
+                // ✅ FIX: projectApi.list() et non activityApi.list()
+                const { data } = await projectApi.list();
+                const projectList = Array.isArray(data) ? data : (data?.data || []);
+                setProjects(projectList);
+>>>>>>> 7fdf5b5eccaaf1b4d828249c96a635fc181e645e
             } catch (err) {
                 console.error("Failed to load projects");
             }
@@ -104,7 +111,43 @@ export default function ActivityMultiStepForm() {
             try {
                 setLoadingActivity(true);
                 const { data: activity } = await activityApi.get(id);
-                setForm(activity);
+
+                // Reconvertir les données imbriquées en objets {label, value} pour MultiSelect
+                // L'API retourne des objets de jointure : { id, activityId, thematicId, thematic: { id, name } }
+                // Il faut extraire l'ID réel depuis la relation imbriquée
+                const toOptions = (items: any[], refList: { label: string; value: string }[], nestedKey?: string) => {
+                    if (!Array.isArray(items)) return [];
+                    return items.map((item) => {
+                        if (typeof item === 'object' && item.label) return item; // déjà {label, value}
+                        // Extraire l'ID réel : si objet imbriqué (ex: item.thematic.id), sinon item.id ou string
+                        const realId = nestedKey && item[nestedKey]?.id
+                            ? item[nestedKey].id
+                            : typeof item === 'string' ? item : item.id;
+                        const found = refList.find((r) => r.value === realId);
+                        return found || { label: realId, value: realId };
+                    });
+                };
+
+                // Normaliser les locations : extraire countryId/regionId/cityId et les dates
+                const normalizeLocations = (locations: any[]) => {
+                    if (!Array.isArray(locations)) return [];
+                    return locations.map((loc: any) => ({
+                        countryId: loc.countryId || loc.country?.id || undefined,
+                        regionId: loc.regionId || loc.region?.id || undefined,
+                        cityId: loc.cityId || loc.city?.id || undefined,
+                        dateStart: loc.dateStart || activity.activityStartDate?.split('T')[0] || '',
+                        dateEnd: loc.dateEnd || activity.activityEndDate?.split('T')[0] || '',
+                    }));
+                };
+
+                setForm({
+                    ...activity,
+                    activityTypes: toOptions(activity.activityTypes || [], refs.activityTypes, 'activityType'),
+                    thematicFocus: toOptions(activity.thematicFocus || [], refs.thematicFocus, 'thematic'),
+                    funders: toOptions(activity.funders || [], refs.funders, 'funder'),
+                    targetGroups: toOptions(activity.targetGroups || [], refs.targetGroups, 'group'),
+                    locations: normalizeLocations(activity.locations || []),
+                });
             } catch (err) {
                 console.error("Failed to load activity:", err);
                 toast.error("Failed to load activity");
@@ -113,7 +156,7 @@ export default function ActivityMultiStepForm() {
             }
         };
         getActivity();
-    }, [id]);
+    }, [id, refs.activityTypes, refs.thematicFocus, refs.funders, refs.targetGroups]);
 
     // State for participant summary
     const totalAttendees = useMemo(
@@ -162,7 +205,16 @@ export default function ActivityMultiStepForm() {
         }
 
         // ✅ Les données sont déjà au bon format (IDs simples, dates en YYYY-MM-DD)
-        const dataToSubmit = form;
+        const extractIds = (items: any[]) =>
+            items.map((i) => (typeof i === "string" ? i : i.value));
+
+        const dataToSubmit = {
+            ...form,
+            activityTypes: extractIds(form.activityTypes),
+            thematicFocus: extractIds(form.thematicFocus),
+            funders: extractIds(form.funders),
+            targetGroups: extractIds(form.targetGroups),
+        };
 
         try {
             setSubmitting(true);
