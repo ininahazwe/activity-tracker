@@ -88,15 +88,10 @@ export default function ActivityMultiStepForm() {
     useEffect(() => {
         const getProjects = async () => {
             try {
-<<<<<<< HEAD
-                const { data } = await projectApi.list();
-                setProjects(data || []);
-=======
                 // ✅ FIX: projectApi.list() et non activityApi.list()
                 const { data } = await projectApi.list();
                 const projectList = Array.isArray(data) ? data : (data?.data || []);
                 setProjects(projectList);
->>>>>>> 7fdf5b5eccaaf1b4d828249c96a635fc181e645e
             } catch (err) {
                 console.error("Failed to load projects");
             }
@@ -237,11 +232,7 @@ export default function ActivityMultiStepForm() {
     if (loadingActivity) {
         return <div className="text-center py-10">Loading activity...</div>;
     }
-    console.log("=== FORM DATA STRUCTURES ===");
-    console.log("activityTypes:", form.activityTypes[0]);
-    console.log("targetGroups:", form.targetGroups[0]);
-    console.log("thematicFocus:", form.thematicFocus[0]);
-    console.log("funders:", form.funders[0]);
+
     // Render functions...
     const renderIdentity = () => {
         const activeProject = projects.find((p) => p.id === form.projectId);

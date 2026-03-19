@@ -9,197 +9,162 @@ export const authRouter = Router();
 
 // ──── POST /api/auth/login ────
 authRouter.post("/login", async (req: Request, res: Response): Promise<void> => {
-  try {
-    console.log("[AUTH/LOGIN] Demande reçue");
-    const { email, password } = req.body;
-    console.log(`[AUTH/LOGIN] Email: ${email}, Password length: ${password?.length || 0}`);
+    try {
+        console.log("[AUTH/LOGIN] Demande reçue");
+        const { email, password } = req.body;
+        console.log(`[AUTH/LOGIN] Email: ${email}, Password length: ${password?.length || 0}`);
 
-    if (!email || !password) {
-      console.log("[AUTH/LOGIN] Email ou password manquant");
-      res.status(400).json({ error: "Email and password are required" });
-      return;
+        if (!email || !password) {
+            console.log("[AUTH/LOGIN] Email ou password manquant");
+            res.status(400).json({ error: "Email and password are required" });
+            return;
+        }
+
+        console.log("[AUTH/LOGIN] Recherche utilisateur...");
+        const user = await prisma.user.findUnique({
+            where: { email },
+            include: { projects: { include: { project: true } } },
+        });
+        console.log(`[AUTH/LOGIN] User trouvé: ${user ? user.email : "NON"}`);
+
+        if (!user) {
+            console.log("[AUTH/LOGIN] Utilisateur non trouvé");
+            res.status(401).json({ error: "Invalid credentials" });
+            return;
+        }
+
+        if (user.status !== "ACTIVE") {
+            console.log(`[AUTH/LOGIN] User status: ${user.status} (pas ACTIVE)`);
+            res.status(401).json({ error: "Invalid credentials" });
+            return;
+        }
+
+        console.log("[AUTH/LOGIN] Vérification mot de passe...");
+        const valid = await bcrypt.compare(password, user.passwordHash);
+        console.log(`[AUTH/LOGIN] Mot de passe valide: ${valid}`);
+
+        if (!valid) {
+            console.log("[AUTH/LOGIN] Mot de passe incorrect");
+            res.status(401).json({ error: "Invalid credentials" });
+            return;
+        }
+
+        const payload: AuthPayload = {
+            userId: user.id,
+            email: user.email,
+            role: user.role as any,
+        };
+
+        console.log("[AUTH/LOGIN] Création JWT...");
+        const jwtSecret = process.env.JWT_SECRET as Secret;
+        console.log(`[AUTH/LOGIN] JWT_SECRET présent: ${jwtSecret ? "OUI" : "NON"}`);
+
+        if (!jwtSecret) {
+            console.error("[AUTH/LOGIN] JWT_SECRET est undefined!");
+            res.status(500).json({ error: "Internal server error" });
+            return;
+        }
+
+        const token = jwt.sign(payload, jwtSecret, {
+            expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+        } as jwt.SignOptions);
+
+        const refreshToken = jwt.sign(payload, jwtSecret, {
+            expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "30d",
+        } as jwt.SignOptions);
+
+        console.log(`[AUTH/LOGIN] ✅ Login réussi pour ${email}`);
+
+        res.json({
+            token,
+            refreshToken,
+            user: {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                status: user.status,
+                projects: user.projects.map((up) => ({
+                    id: up.project.id,
+                    name: up.project.name,
+                    slug: up.project.slug,
+                })),
+            },
+        });
+    } catch (error) {
+        console.error("[AUTH/LOGIN] ❌ Erreur:", error);
+        res.status(500).json({ error: "Failed to login", details: String(error) });
     }
-
-    console.log("[AUTH/LOGIN] Recherche utilisateur...");
-    const user = await prisma.user.findUnique({
-      where: { email },
-      include: { projects: { include: { project: true } } },
-    });
-    console.log(`[AUTH/LOGIN] User trouvé: ${user ? user.email : "NON"}`);
-
-    if (!user) {
-      console.log("[AUTH/LOGIN] Utilisateur non trouvé");
-      res.status(401).json({ error: "Invalid credentials" });
-      return;
-    }
-
-    if (user.status !== "ACTIVE") {
-      console.log(`[AUTH/LOGIN] User status: ${user.status} (pas ACTIVE)`);
-      res.status(401).json({ error: "Invalid credentials" });
-      return;
-    }
-
-    console.log("[AUTH/LOGIN] Vérification mot de passe...");
-    const valid = await bcrypt.compare(password, user.passwordHash);
-    console.log(`[AUTH/LOGIN] Mot de passe valide: ${valid}`);
-
-    if (!valid) {
-      console.log("[AUTH/LOGIN] Mot de passe incorrect");
-      res.status(401).json({ error: "Invalid credentials" });
-      return;
-    }
-
-    const payload: AuthPayload = {
-      userId: user.id,
-      email: user.email,
-      role: user.role as any,
-    };
-
-    console.log("[AUTH/LOGIN] Création JWT...");
-<<<<<<< HEAD
-    const jwtSecret = process.env.JWT_SECRET;
-    const jwtRefreshSecret = process.env.JWT_REFRESH_SECRET;
-=======
-    const jwtSecret = process.env.JWT_SECRET as Secret;
->>>>>>> 7fdf5b5eccaaf1b4d828249c96a635fc181e645e
-    console.log(`[AUTH/LOGIN] JWT_SECRET présent: ${jwtSecret ? "OUI" : "NON"}`);
-    console.log(`[AUTH/LOGIN] JWT_REFRESH_SECRET présent: ${jwtRefreshSecret ? "OUI" : "NON"}`);
-
-    if (!jwtSecret || !jwtRefreshSecret) {
-      console.error("[AUTH/LOGIN] JWT secrets are undefined!");
-      res.status(500).json({ error: "Internal server error" });
-      return;
-    }
-
-<<<<<<< HEAD
-    const jwtExpiresIn = process.env.JWT_EXPIRES_IN || "7d";
-    const jwtRefreshExpiresIn = process.env.JWT_REFRESH_EXPIRES_IN || "30d";
-
-    const token = jwt.sign(payload, jwtSecret, {
-      expiresIn: jwtExpiresIn as string | number,
-    } as any);
-
-    const refreshToken = jwt.sign(payload, jwtRefreshSecret, {
-      expiresIn: jwtRefreshExpiresIn as string | number,
-    } as any);
-=======
-    const token = jwt.sign(payload, jwtSecret, {
-      expiresIn: process.env.JWT_EXPIRES_IN || "7d",
-    } as jwt.SignOptions);
-
-    const refreshToken = jwt.sign(payload, jwtSecret, {
-      expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "30d",
-    } as jwt.SignOptions);
->>>>>>> 7fdf5b5eccaaf1b4d828249c96a635fc181e645e
-
-    console.log(`[AUTH/LOGIN] ✅ Login réussi pour ${email}`);
-
-    res.json({
-      token,
-      refreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        status: user.status,
-        projects: user.projects.map((up) => ({
-          id: up.project.id,
-          name: up.project.name,
-          slug: up.project.slug,
-        })),
-      },
-    });
-  } catch (error) {
-    console.error("[AUTH/LOGIN] ❌ Erreur:", error);
-    res.status(500).json({ error: "Failed to login", details: String(error) });
-  }
 });
 
 // ──── POST /api/auth/refresh ────
 authRouter.post("/refresh", async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { refreshToken } = req.body;
+    try {
+        const { refreshToken } = req.body;
 
-    if (!refreshToken) {
-      res.status(400).json({ error: "Refresh token required" });
-      return;
+        if (!refreshToken) {
+            res.status(400).json({ error: "Refresh token required" });
+            return;
+        }
+
+        const jwtSecret = process.env.JWT_SECRET as Secret;
+        if (!jwtSecret) {
+            console.error("JWT_SECRET is not defined");
+            res.status(500).json({ error: "Internal server error" });
+            return;
+        }
+
+        const payload = jwt.verify(refreshToken, jwtSecret) as AuthPayload;
+
+        const newToken = jwt.sign(
+            { userId: payload.userId, email: payload.email, role: payload.role },
+            jwtSecret,
+            { expiresIn: process.env.JWT_EXPIRES_IN || "7d" } as jwt.SignOptions
+        );
+
+        res.json({ token: newToken });
+    } catch (error) {
+        console.error("[AUTH] Refresh error:", error);
+        res.status(401).json({ error: "Invalid refresh token" });
     }
-
-<<<<<<< HEAD
-    const jwtSecret = process.env.JWT_SECRET;
-    const jwtRefreshSecret = process.env.JWT_REFRESH_SECRET;
-
-    if (!jwtSecret || !jwtRefreshSecret) {
-      console.error("JWT secrets are not defined");
-=======
-    const jwtSecret = process.env.JWT_SECRET as Secret;
-    if (!jwtSecret) {
-      console.error("JWT_SECRET is not defined");
->>>>>>> 7fdf5b5eccaaf1b4d828249c96a635fc181e645e
-      res.status(500).json({ error: "Internal server error" });
-      return;
-    }
-
-    const payload = jwt.verify(refreshToken, jwtRefreshSecret) as AuthPayload;
-
-    const jwtExpiresIn = process.env.JWT_EXPIRES_IN || "7d";
-
-    const newToken = jwt.sign(
-        { userId: payload.userId, email: payload.email, role: payload.role },
-        jwtSecret,
-<<<<<<< HEAD
-        {
-          expiresIn: jwtExpiresIn as string | number,
-        } as any
-=======
-        { expiresIn: process.env.JWT_EXPIRES_IN || "7d" } as jwt.SignOptions
->>>>>>> 7fdf5b5eccaaf1b4d828249c96a635fc181e645e
-    );
-
-    res.json({ token: newToken });
-  } catch (error) {
-    console.error("[AUTH] Refresh error:", error);
-    res.status(401).json({ error: "Invalid refresh token" });
-  }
 });
 
 // ──── GET /api/auth/me ────
 authRouter.get("/me", authenticate, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const userId = req.user?.userId;
+    try {
+        const userId = req.user?.userId;
 
-    if (!userId) {
-      res.status(401).json({ error: "User not found in token" });
-      return;
+        if (!userId) {
+            res.status(401).json({ error: "User not found in token" });
+            return;
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            include: { projects: { include: { project: true } } },
+        });
+
+        if (!user) {
+            res.status(404).json({ error: "User not found" });
+            return;
+        }
+
+        res.json({
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            status: user.status,
+            projects: user.projects.map((up) => ({
+                id: up.project.id,
+                name: up.project.name,
+                slug: up.project.slug,
+            })),
+        });
+    } catch (error) {
+        console.error("[AUTH] Me error:", error);
+        res.status(500).json({ error: "Failed to fetch user" });
     }
-
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { projects: { include: { project: true } } },
-    });
-
-    if (!user) {
-      res.status(404).json({ error: "User not found" });
-      return;
-    }
-
-    res.json({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      status: user.status,
-      projects: user.projects.map((up) => ({
-        id: up.project.id,
-        name: up.project.name,
-        slug: up.project.slug,
-      })),
-    });
-  } catch (error) {
-    console.error("[AUTH] Me error:", error);
-    res.status(500).json({ error: "Failed to fetch user" });
-  }
 });
 
 export default authRouter;

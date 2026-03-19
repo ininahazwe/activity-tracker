@@ -1,6 +1,9 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "../../stores/authStore";
 import { useState } from "react";
+import { LogOut } from "lucide-react";
+// @ts-ignore
+import logo from "@/assets/logo.png";
 
 const NAV_ITEMS = [
   { path: "/dashboard", icon: "📊", label: "Dashboard" },
@@ -27,6 +30,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const { user, logout } = useAuthStore();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [confirm, setConfirm] = useState(false);
 
   const initials = user?.name
       ?.split(" ")
@@ -42,8 +46,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <aside className="w-60 bg-surface border-r border-border flex flex-col p-4 shrink-0">
           {/* Logo */}
           <div className="flex items-center gap-3 px-2 mb-7">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-accent to-purple-500 flex items-center justify-center text-lg">
-              📊
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg">
+              <img src={logo} alt="logo" />
             </div>
             <div>
               <h1 className="text-white text-sm font-extrabold">Activity Tracker</h1>
@@ -137,16 +141,32 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 <p className="text-white text-xs font-semibold truncate">{user?.name}</p>
                 <p className="text-gray-500 text-[10px]">{user?.role}</p>
               </div>
-              <button
-                  onClick={() => {
-                    logout();
-                    navigate("/login");
-                  }}
-                  className="text-gray-500 hover:text-red-400 text-sm transition-colors"
-                  title="Sign out"
-              >
-                🚪
-              </button>
+
+              {!confirm ? (
+                  <button
+                      onClick={() => setConfirm(true)}
+                      className="text-gray-500 hover:text-red-400 transition-colors"
+                      title="Sign out"
+                  >
+                    <LogOut size={18} />
+                  </button>
+              ) : (
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-gray-500">Sign out?</span>
+                    <button
+                        onClick={() => { logout(); navigate("/login"); }}
+                        className="text-red-500 hover:text-red-700 font-medium transition-colors"
+                    >
+                      Yes
+                    </button>
+                    <button
+                        onClick={() => setConfirm(false)}
+                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      No
+                    </button>
+                  </div>
+              )}
             </div>
           </div>
         </aside>

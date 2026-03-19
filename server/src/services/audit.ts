@@ -13,16 +13,7 @@ interface AuditEntry {
 
 export async function logAudit(entry: AuditEntry) {
   try {
-    await prisma.auditLog.create({
-      data: {
-        userId: entry.userId,
-        action: entry.action,
-        entityType: entry.entityType,
-        entityId: entry.entityId,
-        changes: entry.changes ? JSON.stringify(entry.changes) as Prisma.InputJsonValue : undefined,
-        ipAddress: entry.ipAddress,
-      },
-    });
+    await prisma.auditLog.create({ data: entry });
   } catch (err) {
     console.error("[AUDIT] Failed to log:", err);
   }
@@ -32,11 +23,7 @@ export function diffChanges(
     original: Record<string, unknown>,
     updated: Record<string, unknown>,
     fields: string[]
-<<<<<<< HEAD
-): Record<string, { old: unknown; new: unknown }> | undefined {
-=======
 ): Prisma.InputJsonValue | undefined {
->>>>>>> 7fdf5b5eccaaf1b4d828249c96a635fc181e645e
   const changes: Record<string, { old: unknown; new: unknown }> = {};
 
   for (const field of fields) {
@@ -47,9 +34,5 @@ export function diffChanges(
     }
   }
 
-<<<<<<< HEAD
-  return Object.keys(changes).length > 0 ? changes : undefined;
-=======
   return Object.keys(changes).length > 0 ? (changes as Prisma.InputJsonValue) : undefined;
->>>>>>> 7fdf5b5eccaaf1b4d828249c96a635fc181e645e
 }
