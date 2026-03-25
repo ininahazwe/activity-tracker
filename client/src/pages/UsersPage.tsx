@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { userApi } from "../utils/api";
+import { useAuthStore } from "../stores/authStore";
 import toast from "react-hot-toast";
 import { Mail, Edit, Trash2, X } from "lucide-react";
 
@@ -10,6 +11,7 @@ interface User {
     role: "ADMIN" | "MANAGER" | "FIELD";
     status: "ACTIVE" | "INVITED" | "INACTIVE";
     createdAt: string;
+    managedBy?: { name: string };
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -25,16 +27,36 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function UsersPage() {
+    const user = useAuthStore((s) => s.user);
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
+    const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         name: "",
         email: "",
         role: "FIELD" as "ADMIN" | "MANAGER" | "FIELD",
+        managedById: "" as string | null,
     });
+
+    // ─── VÉRIFIER LES PERMISSIONS ───
+    const canAccessPage = user?.role === "ADMIN" || user?.role === "MANAGER";
+
+    // Si l'utilisateur n'a pas accès, afficher un message
+    if (!canAccessPage) {
+        return (
+            <div className="space-y-6">
+                <div className="text-center py-12">
+                    <p className="text-gray-400 text-sm">You don't have permission to access this page.</p>
+                </div>
+            </div>
+        );
+    }
+
+    const isAdmin = user?.role === "ADMIN";
+    const isManager = user?.role === "MANAGER";
 
     // ─── LOAD USERS ───
     const loadUsers = async () => {
@@ -53,6 +75,9 @@ export default function UsersPage() {
     useEffect(() => {
         loadUsers();
     }, []);
+
+    // ─── DERIVE MANAGERS LIST ───
+    const managers = users.filter(u => u.role === "MANAGER");
 
     // ─── HANDLE SUBMIT ───
     const handleSubmit = async (e: React.FormEvent) => {
@@ -79,6 +104,7 @@ export default function UsersPage() {
                 await userApi.update(editingId, {
                     name: formData.name,
                     role: formData.role,
+                    managedById: formData.managedById,
                 });
                 toast.success("User updated successfully");
             } else {
@@ -107,24 +133,35 @@ export default function UsersPage() {
 
     // ─── HANDLE EDIT ───
     const handleEdit = (user: User) => {
+        // Manager ne peut pas éditer les rôles, juste les FIELD agents qu'il a créés
+        if (isManager && user.role !== "FIELD") {
+            toast.error("Managers can only edit Field Agents");
+            return;
+        }
         setEditingId(user.id);
         setFormData({
             name: user.name,
             email: user.email,
             role: user.role as "ADMIN" | "MANAGER" | "FIELD",
+            managedById: (user as any).managedById || "",
         });
         setShowModal(true);
     };
 
     // ─── HANDLE DELETE ───
     const handleDelete = async (id: string) => {
-        if (!confirm("Are you sure you want to delete this user? This cannot be undone.")) {
+        const userToDelete = users.find(u => u.id === id);
+
+        // Manager ne peut supprimer que les FIELD agents
+        if (isManager && userToDelete?.role !== "FIELD") {
+            toast.error("Managers can only delete Field Agents");
             return;
         }
 
         try {
             await userApi.delete(id);
             toast.success("User deleted successfully");
+            setDeleteConfirm(null);
             await loadUsers();
         } catch (error: any) {
             console.error("Error:", error);
@@ -144,14 +181,11 @@ export default function UsersPage() {
         }
     };
 
-    // ─── RESET FORM ───
-    const resetForm = () => {
+    // ─── OPEN MODAL ───
+    const handleOpenModal = () => {
+        resetForm();
         setEditingId(null);
-        setFormData({
-            name: "",
-            email: "",
-            role: "FIELD",
-        });
+        setShowModal(true);
     };
 
     // ─── CLOSE MODAL ───
@@ -160,20 +194,32 @@ export default function UsersPage() {
         resetForm();
     };
 
+    // ─── RESET FORM ───
+    const resetForm = () => {
+        setFormData({
+            name: "",
+            email: "",
+            role: "FIELD",
+            managedById: null,
+        });
+    };
+
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold text-white">Users & Roles</h1>
-                    <p className="text-gray-400 text-sm mt-1">Manage team members and their access</p>
+                    <h1 className="text-3xl font-bold text-white">Users</h1>
+                    <p className="text-gray-400 text-sm mt-1">Manage team members and access levels</p>
                 </div>
-                <button
-                    onClick={() => setShowModal(true)}
-                    className="px-4 py-2 rounded-lg bg-gradient-to-r from-accent to-purple-500 text-white font-semibold hover:shadow-lg hover:shadow-accent/20 transition-all"
-                >
-                    + Invite User
-                </button>
+                {(isAdmin || isManager) && (
+                    <button
+                        onClick={handleOpenModal}
+                        className="px-4 py-2 rounded-lg bg-gradient-to-r from-accent to-purple-500 text-white font-semibold hover:shadow-lg hover:shadow-accent/20 transition-all"
+                    >
+                        + Invite User
+                    </button>
+                )}
             </div>
 
             {/* Users Table */}
@@ -182,94 +228,73 @@ export default function UsersPage() {
                     <div className="p-12 text-center text-gray-500 text-sm">Loading...</div>
                 ) : users.length === 0 ? (
                     <div className="p-12 text-center">
-                        <p className="text-gray-400 text-sm mb-2">No users yet</p>
-                        <button
-                            onClick={() => setShowModal(true)}
-                            className="text-accent text-sm font-semibold hover:underline"
-                        >
-                            Invite your first team member →
+                        <p className="text-gray-400 text-sm mb-2">No users found</p>
+                        <button onClick={handleOpenModal} className="text-accent text-sm font-semibold hover:underline">
+                            Invite your first user →
                         </button>
                     </div>
                 ) : (
                     <table className="w-full text-xs">
                         <thead>
                         <tr>
-                            {["User", "Role", "Status", "Joined", "Actions"].map((h) => (
-                                <th
-                                    key={h}
-                                    className="text-left text-gray-500 font-semibold uppercase tracking-wide text-[10px] px-4 py-3 border-b border-border"
-                                >
-                                    {h}
-                                </th>
-                            ))}
+                            {isAdmin
+                                ? ["User", "Role", "Status", "Manager", "Actions"].map((h) => (
+                                    <th key={h} className="text-left text-gray-500 font-semibold uppercase tracking-wide text-[10px] px-4 py-3 border-b border-border">
+                                        {h}
+                                    </th>
+                                ))
+                                : ["User", "Role", "Status", "Actions"].map((h) => (
+                                    <th key={h} className="text-left text-gray-500 font-semibold uppercase tracking-wide text-[10px] px-4 py-3 border-b border-border">
+                                        {h}
+                                    </th>
+                                ))
+                            }
                         </tr>
                         </thead>
                         <tbody>
-                        {users.map((user) => (
-                            <tr
-                                key={user.id}
-                                className="border-b border-border hover:bg-card-hover transition-colors"
-                            >
+                        {users.map((u) => (
+                            <tr key={u.id} className="border-b border-border hover:bg-card-hover cursor-pointer transition-colors">
                                 <td className="px-4 py-3">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-lg bg-accent/20 text-accent flex items-center justify-center text-[11px] font-bold">
-                                            {user.name
-                                                .split(" ")
-                                                .map((n) => n[0])
-                                                .join("")
-                                                .toUpperCase()}
-                                        </div>
-                                        <div>
-                                            <p className="text-white font-semibold">{user.name}</p>
-                                            <p className="text-gray-500 text-[10px]">{user.email}</p>
-                                        </div>
-                                    </div>
+                                    <p className="text-white font-semibold">{u.name}</p>
+                                    <p className="text-gray-500 text-[10px] mt-0.5">{u.email}</p>
                                 </td>
                                 <td className="px-4 py-3">
-                    <span
-                        className={`px-2.5 py-1 rounded-md text-[10px] font-semibold ${
-                            ROLE_COLORS[user.role] || ""
-                        }`}
-                    >
-                      {user.role}
-                    </span>
+                                    <span className={`px-2.5 py-1 rounded-md text-[10px] font-semibold ${ROLE_COLORS[u.role]}`}>
+                                        {u.role}
+                                    </span>
                                 </td>
                                 <td className="px-4 py-3">
-                    <span
-                        className={`px-2.5 py-1 rounded-md text-[10px] font-semibold ${
-                            STATUS_COLORS[user.status] || ""
-                        }`}
-                    >
-                      {user.status}
-                    </span>
+                                    <span className={`px-2.5 py-1 rounded-md text-[10px] font-semibold ${STATUS_COLORS[u.status]}`}>
+                                        {u.status}
+                                    </span>
                                 </td>
-                                <td className="px-4 py-3 text-gray-500 font-mono text-[10px]">
-                                    {new Date(user.createdAt).toLocaleDateString()}
-                                </td>
+                                {isAdmin && (
+                                    <td className="px-4 py-3 text-gray-400">{u.managedBy ? u.managedBy.name : "—"}</td>
+                                )}
                                 <td className="px-4 py-3">
-                                    <div className="flex items-center gap-2">
-                                        {user.status === "INVITED" && (
+                                    <div className="flex gap-2">
+                                        {u.status === "INVITED" && (
                                             <button
-                                                onClick={() => handleResendInvitation(user.id)}
-                                                title="Resend invitation email"
-                                                className="text-amber-400 hover:text-amber-300 transition-colors p-1"
+                                                onClick={() => handleResendInvitation(u.id)}
+                                                className="p-2 hover:bg-card-hover rounded-lg transition-colors"
+                                                title="Resend invitation"
                                             >
-                                                <Mail className="w-4 h-4" />
+                                                <Mail className="w-4 h-4 text-gray-600 hover:text-gray-400" />
                                             </button>
                                         )}
                                         <button
-                                            onClick={() => handleEdit(user)}
+                                            onClick={() => handleEdit(u)}
+                                            className="p-2 hover:bg-card-hover rounded-lg transition-colors"
                                             title="Edit user"
-                                            className="text-accent hover:text-accent/80 transition-colors p-1"
                                         >
-                                            <Edit className="w-4 h-4" />
+                                            <Edit className="w-4 h-4 text-gray-600 hover:text-gray-400" />
                                         </button>
                                         <button
-                                            onClick={() => handleDelete(user.id)}
+                                            onClick={() => setDeleteConfirm(u.id)}
+                                            className="p-2 hover:bg-card-hover rounded-lg transition-colors"
                                             title="Delete user"
-                                            className="text-red-400 hover:text-red-300 transition-colors p-1"
                                         >
-                                            <Trash2 className="w-4 h-4" />
+                                            <Trash2 className="w-4 h-4 text-red-500/70 hover:text-red-500" />
                                         </button>
                                     </div>
                                 </td>
@@ -283,7 +308,7 @@ export default function UsersPage() {
             {/* Modal */}
             {showModal && (
                 <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-                    <div className="bg-card border border-border rounded-2xl max-w-md w-full p-6 shadow-2xl">
+                    <div className="card border border-border rounded-2xl max-w-md w-full p-6 shadow-2xl">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-white font-bold text-lg">
                                 {editingId ? "Edit User" : "Invite User"}
@@ -335,21 +360,53 @@ export default function UsersPage() {
                                 <label className="block text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">
                                     Role *
                                 </label>
-                                <select
-                                    value={formData.role}
-                                    onChange={(e) =>
-                                        setFormData({
-                                            ...formData,
-                                            role: e.target.value as "ADMIN" | "MANAGER" | "FIELD",
-                                        })
-                                    }
-                                    className="w-full px-3 py-2 bg-card-hover border border-border rounded-lg text-white text-sm focus:outline-none focus:border-accent transition-colors"
-                                >
-                                    <option value="FIELD">Field Agent</option>
-                                    <option value="MANAGER">Project Manager</option>
-                                    <option value="ADMIN">Administrator</option>
-                                </select>
+                                {isManager ? (
+                                    // Manager can only create FIELD agents
+                                    <div className="w-full px-3 py-2 bg-card-hover border border-border rounded-lg text-gray-400 text-sm">
+                                        Field Agent
+                                    </div>
+                                ) : (
+                                    // Admin can create any role
+                                    <select
+                                        value={formData.role}
+                                        onChange={(e) =>
+                                            setFormData({
+                                                ...formData,
+                                                role: e.target.value as "ADMIN" | "MANAGER" | "FIELD",
+                                            })
+                                        }
+                                        className="w-full px-3 py-2 bg-card-hover border border-border rounded-lg text-white text-sm focus:outline-none focus:border-accent transition-colors"
+                                    >
+                                        <option value="FIELD">Field Agent</option>
+                                        <option value="MANAGER">Project Manager</option>
+                                        <option value="ADMIN">Administrator</option>
+                                    </select>
+                                )}
                             </div>
+
+                            {/* Manager Assignment - ADMIN only, for FIELD agents */}
+                            {isAdmin && formData.role === 'FIELD' && (
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">
+                                        Assigned Manager
+                                    </label>
+                                    <select
+                                        value={formData.managedById || ''}
+                                        onChange={(e) => setFormData({
+                                            ...formData,
+                                            managedById: e.target.value || null,
+                                        })}
+                                        className="w-full px-3 py-2 bg-card-hover border border-border rounded-lg text-white text-sm focus:outline-none focus:border-accent transition-colors"
+                                    >
+                                        <option value="">No Manager (Unassigned)</option>
+                                        {managers.map((m) => (
+                                            <option key={m.id} value={m.id}>
+                                                {m.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
 
                             {/* Buttons */}
                             <div className="flex gap-3 pt-4 border-t border-border">
@@ -374,6 +431,44 @@ export default function UsersPage() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {deleteConfirm && (
+                <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+                    <div className="card border border-border rounded-2xl max-w-sm w-full p-8 shadow-2xl">
+                        {/* Icon */}
+                        <div className="w-12 h-12 bg-red-500/20 text-red-400 rounded-lg flex items-center justify-center mx-auto mb-4">
+                            <Trash2 className="w-6 h-6" />
+                        </div>
+
+                        {/* Title */}
+                        <h3 className="text-white font-bold text-lg text-center mb-2">
+                            Delete User?
+                        </h3>
+
+                        {/* Description */}
+                        <p className="text-gray-400 text-sm text-center mb-6">
+                            Are you sure you want to delete this user? This action cannot be undone.
+                        </p>
+
+                        {/* Buttons */}
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setDeleteConfirm(null)}
+                                className="flex-1 px-4 py-2.5 bg-card-hover border border-border text-gray-400 font-semibold rounded-lg hover:text-white hover:border-accent transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => handleDelete(deleteConfirm)}
+                                className="flex-1 px-4 py-2.5 bg-red-500/10 border border-red-500/20 text-red-400 font-semibold rounded-lg hover:bg-red-500/20 hover:border-red-500/40 transition-colors"
+                            >
+                                Delete User
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

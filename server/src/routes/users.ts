@@ -9,11 +9,22 @@ const router = Router();
 const prisma = new PrismaClient();
 
 // ─── GET /api/users ───
-// Liste des utilisateurs (admin seulement)
+// Liste des utilisateurs (ADMIN et MANAGER)
 
-router.get('/', authenticate, authorize('ADMIN'), async (req, res) => {
+// server/src/routes/users.ts
+
+router.get('/', authenticate, authorize('ADMIN', 'MANAGER'), async (req, res) => {
     try {
+        const requester = req.user as any;
+
+        // ADMIN voit TOUT
+        // MANAGER ne voit que ses FIELD agents
+        const whereClause = requester.role === 'ADMIN'
+            ? {}
+            : { managedById: requester.id };
+
         const users = await prisma.user.findMany({
+            where: whereClause,
             select: {
                 id: true,
                 email: true,
@@ -21,11 +32,12 @@ router.get('/', authenticate, authorize('ADMIN'), async (req, res) => {
                 role: true,
                 status: true,
                 createdAt: true,
+                managedById: true,
+                managedBy: { select: { id: true, name: true } },
             },
-            orderBy: {
-                createdAt: 'desc',
-            },
+            orderBy: { createdAt: 'desc' },
         });
+
         res.json(users);
     } catch (error) {
         console.error('Error fetching users:', error);
@@ -35,10 +47,12 @@ router.get('/', authenticate, authorize('ADMIN'), async (req, res) => {
 
 // ─── POST /api/users/invite ───
 // Créer une invitation utilisateur avec email Resend
+// ADMIN peut inviter n'importe quel rôle, MANAGER peut inviter uniquement FIELD
 
-router.post('/invite', authenticate, authorize('ADMIN'), async (req, res) => {
+router.post('/invite', authenticate, authorize('ADMIN', 'MANAGER'), async (req, res) => {
     try {
-        const { email, name, role, projects } = req.body;
+        const { email, name, role } = req.body;
+        const requester = req.user as any;
 
         // Validation
         if (!email || !name || !role) {
@@ -48,6 +62,13 @@ router.post('/invite', authenticate, authorize('ADMIN'), async (req, res) => {
         // Vérifier le rôle (ADMIN, MANAGER, FIELD)
         if (!['ADMIN', 'MANAGER', 'FIELD'].includes(role)) {
             return res.status(400).json({ error: 'Invalid role' });
+        }
+
+        // ─── RESTRICTION: MANAGER ne peut inviter que FIELD ───
+        if (requester.role === 'MANAGER' && role !== 'FIELD') {
+            return res.status(403).json({
+                error: 'Managers can only invite Field Agents'
+            });
         }
 
         // Vérifier si l'email existe déjà
@@ -64,6 +85,10 @@ router.post('/invite', authenticate, authorize('ADMIN'), async (req, res) => {
         const invitationExpires = new Date();
         invitationExpires.setDate(invitationExpires.getDate() + 7);
 
+        const managedById = (requester.role === 'MANAGER' && role === 'FIELD')
+            ? requester.id
+            : null;
+
         // Créer l'utilisateur avec statut INVITED
         const user = await prisma.user.create({
             data: {
@@ -71,9 +96,10 @@ router.post('/invite', authenticate, authorize('ADMIN'), async (req, res) => {
                 name,
                 role,
                 status: 'INVITED',
-                passwordHash: '', // Sera défini lors de l'acceptation
+                passwordHash: '',
                 invitationToken,
                 invitationExpires,
+                managedById,
             },
             select: {
                 id: true,
@@ -81,14 +107,12 @@ router.post('/invite', authenticate, authorize('ADMIN'), async (req, res) => {
                 name: true,
                 role: true,
                 status: true,
-                invitationToken: true,
-                invitationExpires: true,
+                managedById: true,
             },
         });
 
         // ✨ Envoyer l'email d'invitation avec Resend
         try {
-            const requester = req.user as any;
             await emailService.sendInvitation({
                 recipientEmail: email,
                 recipientName: name,
@@ -164,16 +188,45 @@ router.post('/accept-invitation', async (req, res) => {
 });
 
 // ─── PUT /api/users/:id ───
-// Mettre à jour un utilisateur (admin seulement)
+// Mettre à jour un utilisateur
+// ADMIN peut éditer n'importe qui, MANAGER peut éditer uniquement les FIELD agents
 
-router.put('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
+router.put('/:id', authenticate, authorize('ADMIN', 'MANAGER'), async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, role, status } = req.body;
+        const { name, role, status, managedById } = req.body;
+        const requester = req.user as any;
+
+        // ✨ ADMIN peut réassigner, MANAGER ne peut pas
+        if (requester.role === 'MANAGER' && managedById !== undefined) {
+            return res.status(403).json({
+                error: 'Only admins can reassign managers'
+            });
+        }
+
+        // Récupérer l'utilisateur à éditer
+        const userToUpdate = await prisma.user.findUnique({ where: { id } });
+        if (!userToUpdate) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // ─── RESTRICTION: MANAGER ne peut éditer que FIELD ───
+        if (requester.role === 'MANAGER' && userToUpdate.role !== 'FIELD') {
+            return res.status(403).json({
+                error: 'Managers can only edit Field Agents'
+            });
+        }
 
         // Validation du rôle
         if (role && !['ADMIN', 'MANAGER', 'FIELD'].includes(role)) {
             return res.status(400).json({ error: 'Invalid role' });
+        }
+
+        // ─── RESTRICTION: MANAGER ne peut pas changer le rôle d'un FIELD en autre chose ───
+        if (requester.role === 'MANAGER' && role && role !== 'FIELD') {
+            return res.status(403).json({
+                error: 'Managers can only keep Field Agents as Field Agents'
+            });
         }
 
         // Validation du statut
@@ -183,8 +236,7 @@ router.put('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
 
         // Ne pas permettre la désactivation du dernier admin
         if (status === 'INACTIVE') {
-            const user = await prisma.user.findUnique({ where: { id } });
-            if (user?.role === 'ADMIN') {
+            if (userToUpdate.role === 'ADMIN') {
                 const activeAdmins = await prisma.user.count({
                     where: {
                         role: 'ADMIN',
@@ -197,13 +249,17 @@ router.put('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
             }
         }
 
+        const updateData: any = {};
+        if (name) updateData.name = name;
+        if (role) updateData.role = role;
+        if (status) updateData.status = status;
+        if (requester.role === 'ADMIN' && managedById !== undefined) {
+            updateData.managedById = managedById || null;
+        }
+
         const updatedUser = await prisma.user.update({
             where: { id },
-            data: {
-                ...(name && { name }),
-                ...(role && { role }),
-                ...(status && { status }),
-            },
+            data: updateData,
             select: {
                 id: true,
                 email: true,
@@ -221,15 +277,29 @@ router.put('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
 });
 
 // ─── DELETE /api/users/:id ───
-// Supprimer un utilisateur (admin seulement)
+// Supprimer un utilisateur
+// ADMIN peut supprimer n'importe qui, MANAGER peut supprimer uniquement les FIELD agents
 
-router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
+router.delete('/:id', authenticate, authorize('ADMIN', 'MANAGER'), async (req, res) => {
     try {
         const { id } = req.params;
+        const requester = req.user as any;
+
+        // Vérifier que l'utilisateur existe
+        const user = await prisma.user.findUnique({ where: { id } });
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // ─── RESTRICTION: MANAGER ne peut supprimer que FIELD ───
+        if (requester.role === 'MANAGER' && user.role !== 'FIELD') {
+            return res.status(403).json({
+                error: 'Managers can only delete Field Agents'
+            });
+        }
 
         // Vérifier que ce n'est pas le dernier admin
-        const user = await prisma.user.findUnique({ where: { id } });
-        if (user?.role === 'ADMIN') {
+        if (user.role === 'ADMIN') {
             const adminCount = await prisma.user.count({
                 where: { role: 'ADMIN' },
             });
@@ -250,16 +320,25 @@ router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
 });
 
 // ─── POST /api/users/:id/resend-invitation ───
-// Renvoyer une invitation (admin seulement)
+// Renvoyer une invitation (ADMIN et MANAGER)
+// MANAGER peut renvoyer invitation uniquement aux FIELD agents
 
-router.post('/:id/resend-invitation', authenticate, authorize('ADMIN'), async (req, res) => {
+router.post('/:id/resend-invitation', authenticate, authorize('ADMIN', 'MANAGER'), async (req, res) => {
     try {
         const { id } = req.params;
+        const requester = req.user as any;
 
         const user = await prisma.user.findUnique({ where: { id } });
 
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
+        }
+
+        // ─── RESTRICTION: MANAGER ne peut renvoyer invitation que pour FIELD ───
+        if (requester.role === 'MANAGER' && user.role !== 'FIELD') {
+            return res.status(403).json({
+                error: 'Managers can only resend invitations to Field Agents'
+            });
         }
 
         // Vérifier que l'utilisateur n'est pas déjà actif
@@ -282,7 +361,6 @@ router.post('/:id/resend-invitation', authenticate, authorize('ADMIN'), async (r
 
         // ✨ Envoyer l'email de renvoi avec Resend
         try {
-            const requester = req.user as any;
             await emailService.sendInvitation({
                 recipientEmail: user.email,
                 recipientName: user.name,

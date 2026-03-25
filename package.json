@@ -30,6 +30,7 @@
   "author": "Will",
   "license": "MIT",
   "dependencies": {
+    "@prisma/client": "^7.5.0",
     "resend": "^6.9.3"
   }
 }

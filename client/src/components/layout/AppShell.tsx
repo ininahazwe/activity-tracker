@@ -39,6 +39,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       .toUpperCase() || "?";
 
   const isAdmin = user?.role === "ADMIN";
+  const isManagerOrAdmin = user?.role === "ADMIN" || user?.role === "MANAGER";
 
   return (
       <div className="flex h-screen overflow-hidden">
@@ -46,12 +47,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <aside className="w-60 bg-surface border-r border-border flex flex-col p-4 shrink-0">
           {/* Logo */}
           <div className="flex items-center gap-3 px-2 mb-7">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg">
+            <div className="w-16 h-20 rounded-xl flex items-center justify-center text-lg">
               <img src={logo} alt="logo" />
             </div>
             <div>
-              <h1 className="text-white text-sm font-extrabold">Activity Tracker</h1>
-              <p className="text-gray-500 text-[10px]">Pro Edition</p>
+              <h1 className="text-white text-sm font-extrabold">NTENTAN</h1>
+              <p className="text-gray-500 text-[10px]">Activity Tracker</p>
             </div>
           </div>
 
@@ -63,8 +64,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </p>
             {NAV_ITEMS.map((item) => {
               const active = location.pathname === item.path;
-              // Admin-only routes
-              if (item.path === "/users" && !isAdmin) return null;
+              // Hide Users & Roles for FIELD agents
+              if (item.path === "/users" && !isManagerOrAdmin) return null;
 
               return (
                   <button
@@ -142,33 +143,53 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 <p className="text-gray-500 text-[10px]">{user?.role}</p>
               </div>
 
-              {!confirm ? (
-                  <button
-                      onClick={() => setConfirm(true)}
-                      className="text-gray-500 hover:text-red-400 transition-colors"
-                      title="Sign out"
-                  >
-                    <LogOut size={18} />
-                  </button>
-              ) : (
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-gray-500">Sign out?</span>
-                    <button
-                        onClick={() => { logout(); navigate("/login"); }}
-                        className="text-red-500 hover:text-red-700 font-medium transition-colors"
-                    >
-                      Yes
-                    </button>
-                    <button
-                        onClick={() => setConfirm(false)}
-                        className="text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                      No
-                    </button>
-                  </div>
-              )}
+              <button
+                  onClick={() => setConfirm(true)}
+                  className="text-gray-500 hover:text-red-400 transition-colors"
+                  title="Sign out"
+              >
+                <LogOut size={18} />
+              </button>
             </div>
           </div>
+
+          {/* Logout Confirmation Modal */}
+          {confirm && (
+              <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+                <div className="bg-card border border-border rounded-2xl max-w-sm w-full p-8 shadow-2xl">
+                  {/* Icon */}
+                  <div className="w-12 h-12 bg-red-500/20 text-red-400 rounded-lg flex items-center justify-center mx-auto mb-4">
+                    <LogOut className="w-6 h-6" />
+                  </div>
+
+                  {/* Title */}
+                  <h3 className="text-white font-bold text-lg text-center mb-2">
+                    Sign Out?
+                  </h3>
+
+                  {/* Description */}
+                  <p className="text-gray-400 text-sm text-center mb-6">
+                    Are you sure you want to sign out? You'll need to log in again to access your account.
+                  </p>
+
+                  {/* Buttons */}
+                  <div className="flex gap-3">
+                    <button
+                        onClick={() => setConfirm(false)}
+                        className="flex-1 px-4 py-2.5 bg-card-hover border border-border text-gray-400 font-semibold rounded-lg hover:text-white hover:border-accent transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                        onClick={() => { logout(); navigate("/login"); }}
+                        className="flex-1 px-4 py-2.5 bg-red-500/10 border border-red-500/20 text-red-400 font-semibold rounded-lg hover:bg-red-500/20 hover:border-red-500/40 transition-colors"
+                    >
+                      Sign Out
+                    </button>
+                  </div>
+                </div>
+              </div>
+          )}
         </aside>
 
         {/* Main content */}
@@ -182,7 +203,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </h2>
             <div className="flex items-center gap-3">
               <div className="bg-card border border-border rounded-lg px-3 py-1.5 text-xs text-gray-400">
-                📅 2025
+                📅 {new Date().toLocaleDateString()}
               </div>
             </div>
           </header>

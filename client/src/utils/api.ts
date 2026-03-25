@@ -2,7 +2,8 @@ import axios from "axios";
 import qs from "qs";
 
 export const api = axios.create({
-  baseURL: (import.meta as any).env.VITE_API_URL || "https://tracker.mfwa.org/api",
+  //baseURL: (import.meta as any).env.VITE_API_URL || "https://tracker.mfwa.org/api",
+  baseURL: (import.meta as any).env.VITE_API_URL || "/api",
   headers: { "Content-Type": "application/json" },
   paramsSerializer: (params) => {
     return qs.stringify(params, { arrayFormat: 'repeat' });

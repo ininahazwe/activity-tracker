@@ -52,6 +52,9 @@ model User {
   projects          UserProject[]
   activities        Activity[]   @relation("CreatedBy")
   validations       Activity[]   @relation("ValidatedBy")
+  managedById       String?      @map("managed_by_id")
+  managedBy         User?        @relation("ManagerToFieldAgents", fields: [managedById], references: [id], onDelete: SetNull)
+  fieldAgents       User[]       @relation("ManagerToFieldAgents")
   auditLogs         AuditLog[]
 
   @@map("users")

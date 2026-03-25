@@ -22,6 +22,14 @@ const emailService = {
                                invitedBy,
                            }: SendInvitationParams) => {
         try {
+            if (process.env.NODE_ENV !== 'production') {
+                console.log('📧 [DEV MODE] Email would be sent to:', {
+                    to: recipientEmail,
+                    subject: `You've been invited to Activity Tracker Pro`,
+                    invitationLink: `${process.env.FRONTEND_URL}/accept-invitation?token=${invitationToken}`,
+                });
+                return { id: 'dev-email-' + Date.now() };
+            }
             // Construire le lien d'invitation
             const baseUrl = process.env.FRONTEND_URL || 'https://tracker.mfwa.org';
             const invitationLink = `${baseUrl}/accept-invitation?token=${invitationToken}`;

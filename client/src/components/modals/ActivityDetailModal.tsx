@@ -81,40 +81,46 @@ export default function ActivityDetailModal({ activity, isOpen, onClose }: Activ
             pdfContent.style.left = "-9999px";
             pdfContent.style.top = "-9999px";
             pdfContent.style.width = "800px";
-            pdfContent.style.backgroundColor = "#1a1a2e";
+            pdfContent.style.backgroundColor = "#ffffff";
             pdfContent.style.padding = "40px";
             pdfContent.style.fontFamily = "Arial, sans-serif";
-            pdfContent.style.color = "#e0e0e0";
+            pdfContent.style.color = "#1f2937";
             pdfContent.style.lineHeight = "1.6";
 
             // Build comprehensive HTML content for PDF
             pdfContent.innerHTML = `
-                <div style="color: #fff;">
+                <div style="color: #1f2937; background: #ffffff; padding-top: 40px; padding-bottom: 0">
+                    <style>
+                        * { background: #ffffff !important; color: #1f2937 !important; }
+                        div[style*="margin-bottom: 30px"] { page-break-inside: avoid; }
+                        h2 { margin-top: 20px; page-break-after: avoid; }
+                    </style>
+                    <div style="height: 30px;"></div>
                     <!-- Header -->
-                    <div style="border-bottom: 2px solid #4f46e5; padding-bottom: 20px; margin-bottom: 30px;">
-                        <h1 style="margin: 0 0 10px 0; font-size: 28px; color: #fff; word-wrap: break-word; overflow-wrap: break-word;">${activity.activityTitle}</h1>
-                        <p style="margin: 0; font-size: 14px; color: #9ca3af;">${activity.project?.name || "N/A"}</p>
+                    <div style="border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px;">
+                        <h1 style="margin: 0 0 10px 0; font-size: 28px; color: #1f2937; word-wrap: break-word; overflow-wrap: break-word;">${activity.activityTitle}</h1>
+                        <p style="margin: 0; font-size: 14px; color: #6b7280;">${activity.project?.name || "N/A"}</p>
                     </div>
 
                     <!-- Status and Metadata -->
-                    <div style="background: #2d2d44; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+                    <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
                         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px;">
                             <div>
-                                <p style="margin: 0 0 5px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">Status</p>
-                                <p style="margin: 0; font-size: 14px; color: #fff; font-weight: bold;">${activity.status}</p>
+                                <p style="margin: 0 0 5px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Status</p>
+                                <p style="margin: 0; font-size: 14px; color: #1f2937; font-weight: bold;">${activity.status}</p>
                             </div>
                             <div>
-                                <p style="margin: 0 0 5px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">Created By</p>
-                                <p style="margin: 0; font-size: 14px; color: #fff;">${activity.createdBy?.name || "N/A"}</p>
+                                <p style="margin: 0 0 5px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Created By</p>
+                                <p style="margin: 0; font-size: 14px; color: #1f2937;">${activity.createdBy?.name || "N/A"}</p>
                             </div>
                             <div>
-                                <p style="margin: 0 0 5px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">Created Date</p>
-                                <p style="margin: 0; font-size: 14px; color: #fff;">${formatDate(activity.createdAt)}</p>
+                                <p style="margin: 0 0 5px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Created Date</p>
+                                <p style="margin: 0; font-size: 14px; color: #1f2937;">${formatDate(activity.createdAt)}</p>
                             </div>
                         </div>
                         <div>
-                            <p style="margin: 0 0 5px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">Created Time</p>
-                            <p style="margin: 0; font-size: 14px; color: #fff;">${formatTime(activity.createdAt)}</p>
+                            <p style="margin: 0 0 5px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Created Time</p>
+                            <p style="margin: 0; font-size: 14px; color: #1f2937;">${formatTime(activity.createdAt)}</p>
                         </div>
                     </div>
 
@@ -122,9 +128,9 @@ export default function ActivityDetailModal({ activity, isOpen, onClose }: Activ
                     ${
                 activity.rejectionReason
                     ? `
-                        <div style="background: #7f1d1d; border: 1px solid #991b1b; padding: 15px; border-radius: 8px; margin-bottom: 30px;">
-                            <p style="margin: 0 0 8px 0; font-size: 12px; color: #fca5a5; font-weight: bold;">⚠ Rejection Reason</p>
-                            <p style="margin: 0; font-size: 13px; color: #fecaca; word-wrap: break-word;">${activity.rejectionReason}</p>
+                        <div style="background: #fee2e2; border: 1px solid #fecaca; padding: 15px; border-radius: 8px; margin-bottom: 30px;">
+                            <p style="margin: 0 0 8px 0; font-size: 12px; color: #dc2626; font-weight: bold;">⚠ Rejection Reason</p>
+                            <p style="margin: 0; font-size: 13px; color: #991b1b; word-wrap: break-word;">${activity.rejectionReason}</p>
                         </div>
                     `
                     : ""
@@ -132,16 +138,16 @@ export default function ActivityDetailModal({ activity, isOpen, onClose }: Activ
 
                     <!-- Activity Information Section -->
                     <div style="margin-bottom: 30px;">
-                        <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #fff; border-bottom: 1px solid #4f46e5; padding-bottom: 10px;">Activity Information</h2>
-                        <div style="background: #2d2d44; padding: 20px; border-radius: 8px;">
+                        <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #1f2937; border-bottom: 1px solid #2563eb; padding-bottom: 10px;">Activity Information</h2>
+                        <div style="background: #f3f4f6; padding: 20px; border-radius: 8px;">
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                                 <div>
-                                    <p style="margin: 0 0 8px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">Activity Title</p>
-                                    <p style="margin: 0; font-size: 14px; color: #fff; word-wrap: break-word;">${activity.activityTitle}</p>
+                                    <p style="margin: 0 0 8px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Activity Title</p>
+                                    <p style="margin: 0; font-size: 14px; color: #1f2937; word-wrap: break-word;">${activity.activityTitle}</p>
                                 </div>
                                 <div>
-                                    <p style="margin: 0 0 8px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">Project</p>
-                                    <p style="margin: 0; font-size: 14px; color: #fff; word-wrap: break-word;">${activity.project?.name || "N/A"}</p>
+                                    <p style="margin: 0 0 8px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Project</p>
+                                    <p style="margin: 0; font-size: 14px; color: #1f2937; word-wrap: break-word;">${activity.project?.name || "N/A"}</p>
                                 </div>
                             </div>
                         </div>
@@ -149,94 +155,94 @@ export default function ActivityDetailModal({ activity, isOpen, onClose }: Activ
 
                     <!-- Location & Dates Section -->
                     <div style="margin-bottom: 30px;">
-                        <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #fff; border-bottom: 1px solid #4f46e5; padding-bottom: 10px;">Location & Dates</h2>
-                        <div style="background: #2d2d44; padding: 20px; border-radius: 8px;">
+                        <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #1f2937; border-bottom: 1px solid #2563eb; padding-bottom: 10px;">Location & Dates</h2>
+                        <div style="background: #f3f4f6; padding: 20px; border-radius: 8px;">
                             <div>
-                                <p style="margin: 0 0 8px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">Locations</p>
-                                <p style="margin: 0; font-size: 13px; color: #fff; line-height: 1.6; word-wrap: break-word;">${formatLocationsList()}</p>
+                                <p style="margin: 0 0 8px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Locations</p>
+                                <p style="margin: 0; font-size: 13px; color: #1f2937; line-height: 1.6; word-wrap: break-word;">${formatLocationsList()}</p>
                             </div>
                         </div>
                     </div>
 
                     <!-- Classification Section -->
                     <div style="margin-bottom: 30px;">
-                        <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #fff; border-bottom: 1px solid #4f46e5; padding-bottom: 10px;">Classification</h2>
-                        <div style="background: #2d2d44; padding: 20px; border-radius: 8px;">
+                        <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #1f2937; border-bottom: 1px solid #2563eb; padding-bottom: 10px;">Classification</h2>
+                        <div style="background: #f3f4f6; padding: 20px; border-radius: 8px;">
                             <div style="margin-bottom: 15px;">
-                                <p style="margin: 0 0 5px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">Activity Types</p>
-                                <p style="margin: 0; font-size: 13px; color: #fff; word-wrap: break-word;">${formatArrayField(activity.activityTypes)}</p>
+                                <p style="margin: 0 0 5px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Activity Types</p>
+                                <p style="margin: 0; font-size: 13px; color: #1f2937; word-wrap: break-word;">${formatArrayField(activity.activityTypes)}</p>
                             </div>
                             <div style="margin-bottom: 15px;">
-                                <p style="margin: 0 0 5px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">Thematic Focus</p>
-                                <p style="margin: 0; font-size: 13px; color: #fff; word-wrap: break-word;">${formatArrayField(activity.thematicFocus)}</p>
+                                <p style="margin: 0 0 5px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Thematic Focus</p>
+                                <p style="margin: 0; font-size: 13px; color: #1f2937; word-wrap: break-word;">${formatArrayField(activity.thematicFocus)}</p>
                             </div>
                             <div>
-                                <p style="margin: 0 0 5px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">Funders</p>
-                                <p style="margin: 0; font-size: 13px; color: #fff; word-wrap: break-word;">${formatArrayField(activity.funders)}</p>
+                                <p style="margin: 0 0 5px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Funders</p>
+                                <p style="margin: 0; font-size: 13px; color: #1f2937; word-wrap: break-word;">${formatArrayField(activity.funders)}</p>
                             </div>
                         </div>
                     </div>
 
                     <!-- Target Groups Section -->
                     <div style="margin-bottom: 30px;">
-                        <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #fff; border-bottom: 1px solid #4f46e5; padding-bottom: 10px;">Target Groups</h2>
-                        <div style="background: #2d2d44; padding: 20px; border-radius: 8px;">
-                            <p style="margin: 0; font-size: 13px; color: #fff; word-wrap: break-word;">${formatArrayField(activity.targetGroups)}</p>
+                        <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #1f2937; border-bottom: 1px solid #2563eb; padding-bottom: 10px;">Target Groups</h2>
+                        <div style="background: #f3f4f6; padding: 20px; border-radius: 8px;">
+                            <p style="margin: 0; font-size: 13px; color: #1f2937; word-wrap: break-word;">${formatArrayField(activity.targetGroups)}</p>
                         </div>
                     </div>
 
                     <!-- Beneficiary Information Section -->
                     <div style="margin-bottom: 30px;">
-                        <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #fff; border-bottom: 1px solid #4f46e5; padding-bottom: 10px;">Beneficiary Information</h2>
-                        <div style="background: #2d2d44; padding: 20px; border-radius: 8px;">
+                        <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #1f2937; border-bottom: 1px solid #2563eb; padding-bottom: 10px;">Beneficiary Information</h2>
+                        <div style="background: #f3f4f6; padding: 20px; border-radius: 8px;">
                             <div style="margin-bottom: 20px;">
-                                <p style="margin: 0 0 10px 0; font-size: 12px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">Gender Breakdown</p>
+                                <p style="margin: 0 0 10px 0; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Gender Breakdown</p>
                                 <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
                                     <div>
-                                        <p style="margin: 0 0 5px 0; font-size: 10px; color: #9ca3af;">Total</p>
-                                        <p style="margin: 0; font-size: 18px; color: #fff; font-weight: bold;">${(activity.maleCount || 0) + (activity.femaleCount || 0) + (activity.nonBinaryCount || 0)}</p>
+                                        <p style="margin: 0 0 5px 0; font-size: 10px; color: #6b7280;">Total</p>
+                                        <p style="margin: 0; font-size: 18px; color: #1f2937; font-weight: bold;">${(activity.maleCount || 0) + (activity.femaleCount || 0) + (activity.nonBinaryCount || 0)}</p>
                                     </div>
                                     <div>
-                                        <p style="margin: 0 0 5px 0; font-size: 10px; color: #9ca3af;">Male</p>
-                                        <p style="margin: 0; font-size: 18px; color: #fff; font-weight: bold;">${activity.maleCount || 0}</p>
+                                        <p style="margin: 0 0 5px 0; font-size: 10px; color: #6b7280;">Male</p>
+                                        <p style="margin: 0; font-size: 18px; color: #1f2937; font-weight: bold;">${activity.maleCount || 0}</p>
                                     </div>
                                     <div>
-                                        <p style="margin: 0 0 5px 0; font-size: 10px; color: #9ca3af;">Female</p>
-                                        <p style="margin: 0; font-size: 18px; color: #fff; font-weight: bold;">${activity.femaleCount || 0}</p>
+                                        <p style="margin: 0 0 5px 0; font-size: 10px; color: #6b7280;">Female</p>
+                                        <p style="margin: 0; font-size: 18px; color: #1f2937; font-weight: bold;">${activity.femaleCount || 0}</p>
                                     </div>
                                     <div>
-                                        <p style="margin: 0 0 5px 0; font-size: 10px; color: #9ca3af;">Non-Binary</p>
-                                        <p style="margin: 0; font-size: 18px; color: #fff; font-weight: bold;">${activity.nonBinaryCount || 0}</p>
+                                        <p style="margin: 0 0 5px 0; font-size: 10px; color: #6b7280;">Non-Binary</p>
+                                        <p style="margin: 0; font-size: 18px; color: #1f2937; font-weight: bold;">${activity.nonBinaryCount || 0}</p>
                                     </div>
                                 </div>
                             </div>
                             <div style="margin-bottom: 20px;">
-                                <p style="margin: 0 0 10px 0; font-size: 12px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">Age Breakdown</p>
+                                <p style="margin: 0 0 10px 0; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Age Breakdown</p>
                                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
                                     <div>
-                                        <p style="margin: 0 0 5px 0; font-size: 10px; color: #9ca3af;">Under 25</p>
-                                        <p style="margin: 0; font-size: 18px; color: #fff; font-weight: bold;">${activity.ageUnder25 || 0}</p>
+                                        <p style="margin: 0 0 5px 0; font-size: 10px; color: #6b7280;">Under 25</p>
+                                        <p style="margin: 0; font-size: 18px; color: #1f2937; font-weight: bold;">${activity.ageUnder25 || 0}</p>
                                     </div>
                                     <div>
-                                        <p style="margin: 0 0 5px 0; font-size: 10px; color: #9ca3af;">25-40</p>
-                                        <p style="margin: 0; font-size: 18px; color: #fff; font-weight: bold;">${activity.age25to40 || 0}</p>
+                                        <p style="margin: 0 0 5px 0; font-size: 10px; color: #6b7280;">25-40</p>
+                                        <p style="margin: 0; font-size: 18px; color: #1f2937; font-weight: bold;">${activity.age25to40 || 0}</p>
                                     </div>
                                     <div>
-                                        <p style="margin: 0 0 5px 0; font-size: 10px; color: #9ca3af;">40+</p>
-                                        <p style="margin: 0; font-size: 18px; color: #fff; font-weight: bold;">${activity.age40plus || 0}</p>
+                                        <p style="margin: 0 0 5px 0; font-size: 10px; color: #6b7280;">40+</p>
+                                        <p style="margin: 0; font-size: 18px; color: #1f2937; font-weight: bold;">${activity.age40plus || 0}</p>
                                     </div>
                                 </div>
                             </div>
                             <div>
-                                <p style="margin: 0 0 10px 0; font-size: 12px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">Disability Status</p>
+                                <p style="margin: 0 0 10px 0; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Disability Status</p>
                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                                     <div>
-                                        <p style="margin: 0 0 5px 0; font-size: 10px; color: #9ca3af;">With Disability</p>
-                                        <p style="margin: 0; font-size: 18px; color: #fff; font-weight: bold;">${activity.disabilityYes || 0}</p>
+                                        <p style="margin: 0 0 5px 0; font-size: 10px; color: #6b7280;">With Disability</p>
+                                        <p style="margin: 0; font-size: 18px; color: #1f2937; font-weight: bold;">${activity.disabilityYes || 0}</p>
                                     </div>
                                     <div>
-                                        <p style="margin: 0 0 5px 0; font-size: 10px; color: #9ca3af;">Without Disability</p>
-                                        <p style="margin: 0; font-size: 18px; color: #fff; font-weight: bold;">${activity.disabilityNo || 0}</p>
+                                        <p style="margin: 0 0 5px 0; font-size: 10px; color: #6b7280;">Without Disability</p>
+                                        <p style="margin: 0; font-size: 18px; color: #1f2937; font-weight: bold;">${activity.disabilityNo || 0}</p>
                                     </div>
                                 </div>
                             </div>
@@ -251,12 +257,12 @@ export default function ActivityDetailModal({ activity, isOpen, onClose }: Activ
                 activity.actionsTaken
                     ? `
                         <div style="margin-bottom: 30px;">
-                            <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #fff; border-bottom: 1px solid #4f46e5; padding-bottom: 10px;">Results & Outputs</h2>
-                            <div style="background: #2d2d44; padding: 20px; border-radius: 8px;">
-                                ${activity.keyOutputs ? `<div style="margin-bottom: 15px;"><p style="margin: 0 0 5px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">Key Outputs</p><p style="margin: 0; font-size: 13px; color: #fff; line-height: 1.6; word-wrap: break-word;">${activity.keyOutputs}</p></div>` : ""}
-                                ${activity.immediateOutcomes ? `<div style="margin-bottom: 15px;"><p style="margin: 0 0 5px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">Immediate Outcomes</p><p style="margin: 0; font-size: 13px; color: #fff; line-height: 1.6; word-wrap: break-word;">${activity.immediateOutcomes}</p></div>` : ""}
-                                ${activity.skillsGained ? `<div style="margin-bottom: 15px;"><p style="margin: 0 0 5px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">Skills Gained</p><p style="margin: 0; font-size: 13px; color: #fff; line-height: 1.6; word-wrap: break-word;">${activity.skillsGained}</p></div>` : ""}
-                                ${activity.actionsTaken ? `<div><p style="margin: 0 0 5px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">Actions Taken</p><p style="margin: 0; font-size: 13px; color: #fff; line-height: 1.6; word-wrap: break-word;">${activity.actionsTaken}</p></div>` : ""}
+                            <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #1f2937; border-bottom: 1px solid #2563eb; padding-bottom: 10px;">Results & Outputs</h2>
+                            <div style="background: #f3f4f6; padding: 20px; border-radius: 8px;">
+                                ${activity.keyOutputs ? `<div style="margin-bottom: 15px;"><p style="margin: 0 0 5px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Key Outputs</p><p style="margin: 0; font-size: 13px; color: #1f2937; line-height: 1.6; word-wrap: break-word;">${activity.keyOutputs}</p></div>` : ""}
+                                ${activity.immediateOutcomes ? `<div style="margin-bottom: 15px;"><p style="margin: 0 0 5px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Immediate Outcomes</p><p style="margin: 0; font-size: 13px; color: #1f2937; line-height: 1.6; word-wrap: break-word;">${activity.immediateOutcomes}</p></div>` : ""}
+                                ${activity.skillsGained ? `<div style="margin-bottom: 15px;"><p style="margin: 0 0 5px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Skills Gained</p><p style="margin: 0; font-size: 13px; color: #1f2937; line-height: 1.6; word-wrap: break-word;">${activity.skillsGained}</p></div>` : ""}
+                                ${activity.actionsTaken ? `<div><p style="margin: 0 0 5px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Actions Taken</p><p style="margin: 0; font-size: 13px; color: #1f2937; line-height: 1.6; word-wrap: break-word;">${activity.actionsTaken}</p></div>` : ""}
                             </div>
                         </div>
                     `
@@ -270,11 +276,11 @@ export default function ActivityDetailModal({ activity, isOpen, onClose }: Activ
                 activity.commitmentsSecured
                     ? `
                         <div style="margin-bottom: 30px;">
-                            <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #fff; border-bottom: 1px solid #4f46e5; padding-bottom: 10px;">Impact & Policy</h2>
-                            <div style="background: #2d2d44; padding: 20px; border-radius: 8px;">
-                                ${activity.policiesInfluenced ? `<div style="margin-bottom: 15px;"><p style="margin: 0 0 5px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">Policies Influenced</p><p style="margin: 0; font-size: 13px; color: #fff; line-height: 1.6; word-wrap: break-word;">${activity.policiesInfluenced}</p></div>` : ""}
-                                ${activity.institutionalChanges ? `<div style="margin-bottom: 15px;"><p style="margin: 0 0 5px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">Institutional Changes</p><p style="margin: 0; font-size: 13px; color: #fff; line-height: 1.6; word-wrap: break-word;">${activity.institutionalChanges}</p></div>` : ""}
-                                ${activity.commitmentsSecured ? `<div><p style="margin: 0 0 5px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">Commitments Secured</p><p style="margin: 0; font-size: 13px; color: #fff; line-height: 1.6; word-wrap: break-word;">${activity.commitmentsSecured}</p></div>` : ""}
+                            <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #1f2937; border-bottom: 1px solid #2563eb; padding-bottom: 10px;">Impact & Policy</h2>
+                            <div style="background: #f3f4f6; padding: 20px; border-radius: 8px;">
+                                ${activity.policiesInfluenced ? `<div style="margin-bottom: 15px;"><p style="margin: 0 0 5px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Policies Influenced</p><p style="margin: 0; font-size: 13px; color: #1f2937; line-height: 1.6; word-wrap: break-word;">${activity.policiesInfluenced}</p></div>` : ""}
+                                ${activity.institutionalChanges ? `<div style="margin-bottom: 15px;"><p style="margin: 0 0 5px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Institutional Changes</p><p style="margin: 0; font-size: 13px; color: #1f2937; line-height: 1.6; word-wrap: break-word;">${activity.institutionalChanges}</p></div>` : ""}
+                                ${activity.commitmentsSecured ? `<div><p style="margin: 0 0 5px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Commitments Secured</p><p style="margin: 0; font-size: 13px; color: #1f2937; line-height: 1.6; word-wrap: break-word;">${activity.commitmentsSecured}</p></div>` : ""}
                             </div>
                         </div>
                     `
@@ -286,10 +292,10 @@ export default function ActivityDetailModal({ activity, isOpen, onClose }: Activ
                 activity.mediaMentions || activity.publicationsProduced
                     ? `
                         <div style="margin-bottom: 30px;">
-                            <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #fff; border-bottom: 1px solid #4f46e5; padding-bottom: 10px;">Media & Publications</h2>
-                            <div style="background: #2d2d44; padding: 20px; border-radius: 8px;">
-                                ${activity.mediaMentions ? `<div style="margin-bottom: 15px;"><p style="margin: 0 0 5px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">Media Mentions</p><p style="margin: 0; font-size: 13px; color: #fff; line-height: 1.6; word-wrap: break-word;">${activity.mediaMentions}</p></div>` : ""}
-                                ${activity.publicationsProduced ? `<div><p style="margin: 0 0 5px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">Publications Produced</p><p style="margin: 0; font-size: 13px; color: #fff; line-height: 1.6; word-wrap: break-word;">${activity.publicationsProduced}</p></div>` : ""}
+                            <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #1f2937; border-bottom: 1px solid #2563eb; padding-bottom: 10px;">Media & Publications</h2>
+                            <div style="background: #f3f4f6; padding: 20px; border-radius: 8px;">
+                                ${activity.mediaMentions ? `<div style="margin-bottom: 15px;"><p style="margin: 0 0 5px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Media Mentions</p><p style="margin: 0; font-size: 13px; color: #1f2937; line-height: 1.6; word-wrap: break-word;">${activity.mediaMentions}</p></div>` : ""}
+                                ${activity.publicationsProduced ? `<div><p style="margin: 0 0 5px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Publications Produced</p><p style="margin: 0; font-size: 13px; color: #1f2937; line-height: 1.6; word-wrap: break-word;">${activity.publicationsProduced}</p></div>` : ""}
                             </div>
                         </div>
                     `
@@ -304,12 +310,12 @@ export default function ActivityDetailModal({ activity, isOpen, onClose }: Activ
                 activity.existingPartnerships
                     ? `
                         <div style="margin-bottom: 30px;">
-                            <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #fff; border-bottom: 1px solid #4f46e5; padding-bottom: 10px;">Inclusion & Partnerships</h2>
-                            <div style="background: #2d2d44; padding: 20px; border-radius: 8px;">
-                                ${activity.genderOutcomes ? `<div style="margin-bottom: 15px;"><p style="margin: 0 0 5px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">Gender Outcomes</p><p style="margin: 0; font-size: 13px; color: #fff; line-height: 1.6; word-wrap: break-word;">${activity.genderOutcomes}</p></div>` : ""}
-                                ${activity.inclusionMarginalised ? `<div style="margin-bottom: 15px;"><p style="margin: 0 0 5px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">Inclusion of Marginalised Groups</p><p style="margin: 0; font-size: 13px; color: #fff; line-height: 1.6; word-wrap: break-word;">${activity.inclusionMarginalised}</p></div>` : ""}
-                                ${activity.newPartnerships ? `<div style="margin-bottom: 15px;"><p style="margin: 0 0 5px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">New Partnerships</p><p style="margin: 0; font-size: 13px; color: #fff; line-height: 1.6; word-wrap: break-word;">${activity.newPartnerships}</p></div>` : ""}
-                                ${activity.existingPartnerships ? `<div><p style="margin: 0 0 5px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: bold;">Existing Partnerships</p><p style="margin: 0; font-size: 13px; color: #fff; line-height: 1.6; word-wrap: break-word;">${activity.existingPartnerships}</p></div>` : ""}
+                            <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #1f2937; border-bottom: 1px solid #2563eb; padding-bottom: 10px;">Inclusion & Partnerships</h2>
+                            <div style="background: #f3f4f6; padding: 20px; border-radius: 8px;">
+                                ${activity.genderOutcomes ? `<div style="margin-bottom: 15px;"><p style="margin: 0 0 5px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Gender Outcomes</p><p style="margin: 0; font-size: 13px; color: #1f2937; line-height: 1.6; word-wrap: break-word;">${activity.genderOutcomes}</p></div>` : ""}
+                                ${activity.inclusionMarginalised ? `<div style="margin-bottom: 15px;"><p style="margin: 0 0 5px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Inclusion of Marginalised Groups</p><p style="margin: 0; font-size: 13px; color: #1f2937; line-height: 1.6; word-wrap: break-word;">${activity.inclusionMarginalised}</p></div>` : ""}
+                                ${activity.newPartnerships ? `<div style="margin-bottom: 15px;"><p style="margin: 0 0 5px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">New Partnerships</p><p style="margin: 0; font-size: 13px; color: #1f2937; line-height: 1.6; word-wrap: break-word;">${activity.newPartnerships}</p></div>` : ""}
+                                ${activity.existingPartnerships ? `<div><p style="margin: 0 0 5px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Existing Partnerships</p><p style="margin: 0; font-size: 13px; color: #1f2937; line-height: 1.6; word-wrap: break-word;">${activity.existingPartnerships}</p></div>` : ""}
                             </div>
                         </div>
                     `
@@ -317,7 +323,7 @@ export default function ActivityDetailModal({ activity, isOpen, onClose }: Activ
             }
 
                     <!-- Footer -->
-                    <div style="border-top: 1px solid #4f46e5; padding-top: 20px; text-align: center; font-size: 12px; color: #9ca3af;">
+                    <div style="border-top: 1px solid #2563eb; padding-top: 20px; text-align: center; font-size: 12px; color: #6b7280; margin-bottom: 30px !important;">
                         <p style="margin: 0;">Generated from Activity Tracker Pro</p>
                         <p style="margin: 5px 0 0 0;">${new Date().toLocaleDateString()}</p>
                     </div>

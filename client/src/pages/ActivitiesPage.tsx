@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { activityApi, projectApi } from "../utils/api";
+import { useAuthStore } from "../stores/authStore";
 import toast from "react-hot-toast";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import ActivityDetailModal from "../components/modals/ActivityDetailModal";
@@ -14,6 +15,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function ActivitiesPage() {
     const navigate = useNavigate();
+    const authUser = useAuthStore((s) => s.user);
     const [activities, setActivities] = useState<any[]>([]);
     const [pagination, setPagination] = useState<any>(null);
     const [projects, setProjects] = useState<any[]>([]);
@@ -74,7 +76,22 @@ export default function ActivitiesPage() {
                 }
 
                 const res = await activityApi.list(params);
-                setActivities(res.data?.data || []);
+                let activities = res.data?.data || [];
+
+                // ─── APPLY ROLE-BASED FILTERING ───
+                if (authUser?.role === "MANAGER") {
+                    // Manager sees own activities + activities from their field agents
+                    const managedAgentIds = (res.data?.managedAgents || []).map((a: any) => a.id);
+                    activities = activities.filter((a: any) =>
+                        a.createdById === authUser.id || managedAgentIds.includes(a.createdById)
+                    );
+                } else if (authUser?.role === "FIELD") {
+                    // Field agent sees only their own activities
+                    activities = activities.filter((a: any) => a.createdById === authUser.id);
+                }
+                // ADMIN sees everything
+
+                setActivities(activities);
                 setPagination(res.data?.pagination || null);
             } catch (error) {
                 console.error("Failed to fetch activities:", error);
@@ -85,7 +102,7 @@ export default function ActivitiesPage() {
         };
 
         fetchActivities();
-    }, [currentPage, statusFilter, searchTitle, projectFilter, dateStartFilter, dateEndFilter]);
+    }, [currentPage, statusFilter, searchTitle, projectFilter, dateStartFilter, dateEndFilter, authUser?.id, authUser?.role]);
 
     // ─── Handlers ───
     const handleViewActivity = (activity: any) => {
@@ -155,7 +172,7 @@ export default function ActivitiesPage() {
                             onChange={(e) => setStatusFilter(e.target.value)}
                             className="w-full px-3 py-2.5 bg-card-hover border border-border rounded-lg text-white text-sm focus:outline-none focus:border-accent transition-colors"
                         >
-                            <option value="all">All Status</option>
+                            <option value="all">All Statuses</option>
                             <option value="DRAFT">Draft</option>
                             <option value="SUBMITTED">Submitted</option>
                             <option value="VALIDATED">Validated</option>
@@ -175,14 +192,12 @@ export default function ActivitiesPage() {
                         >
                             <option value="">All Projects</option>
                             {projects.map((p) => (
-                                <option key={p.id} value={p.id}>
-                                    {p.name}
-                                </option>
+                                <option key={p.id} value={p.id}>{p.name}</option>
                             ))}
                         </select>
                     </div>
 
-                    {/* Date Start Filter */}
+                    {/* Start Date Filter */}
                     <div>
                         <label className="text-gray-400 text-xs font-semibold uppercase block mb-2">
                             Start Date From
@@ -195,7 +210,7 @@ export default function ActivitiesPage() {
                         />
                     </div>
 
-                    {/* Date End Filter */}
+                    {/* End Date Filter */}
                     <div>
                         <label className="text-gray-400 text-xs font-semibold uppercase block mb-2">
                             Start Date To
@@ -237,7 +252,7 @@ export default function ActivitiesPage() {
                     <table className="w-full text-xs">
                         <thead>
                         <tr>
-                            {["Activity", "Project", "Date", "Status"].map((h) => (
+                            {["Activity", "Created by", "Project", "Date", "Status"].map((h) => (
                                 <th key={h} className="text-left text-gray-500 font-semibold uppercase tracking-wide text-[10px] px-4 py-3 border-b border-border">
                                     {h}
                                 </th>
@@ -249,16 +264,16 @@ export default function ActivitiesPage() {
                             <tr key={a.id} onClick={() => handleViewActivity(a)} className="border-b border-border hover:bg-card-hover cursor-pointer transition-colors">
                                 <td className="px-4 py-3">
                                     <p className="text-white font-semibold">{a.activityTitle}</p>
-                                    <p className="text-gray-500 text-[10px] mt-0.5">by {a.createdBy?.name}</p>
                                 </td>
+                                <td className="px-4 py-3 text-gray-400">{a.createdBy?.name || "Unknown"}</td>
                                 <td className="px-4 py-3 text-gray-400">{a.project?.name}</td>
                                 <td className="px-4 py-3 text-gray-500 font-mono text-[10px]">
-                                    {new Date(a.activityStartDate ).toLocaleDateString()} - {new Date(a.activityEndDate ).toLocaleDateString()}
+                                    {new Date(a.activityStartDate).toLocaleDateString()} - {new Date(a.activityEndDate).toLocaleDateString()}
                                 </td>
                                 <td className="px-4 py-3">
-                                        <span className={`px-2.5 py-1 rounded-md text-[10px] font-semibold ${STATUS_COLORS[a.status] || ""}`}>
-                                            {a.status}
-                                        </span>
+                                    <span className={`px-2.5 py-1 rounded-md text-[10px] font-semibold ${STATUS_COLORS[a.status] || ""}`}>
+                                        {a.status}
+                                    </span>
                                 </td>
                             </tr>
                         ))}

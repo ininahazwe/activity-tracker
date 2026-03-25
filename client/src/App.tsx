@@ -17,6 +17,7 @@ import {
     CitiesPage,
     ProjectsPage
 } from "./pages/SettingsPages";
+import AcceptInvitationPage from "@/pages/Acceptinvitationpage.tsx";
 
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -37,6 +38,7 @@ export default function App() {
     return (
         <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
             <Route
                 path="/*"
                 element={
