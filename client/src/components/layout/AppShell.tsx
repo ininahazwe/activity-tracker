@@ -52,7 +52,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </div>
             <div>
               <h1 className="text-white text-sm font-extrabold">NTENTAN</h1>
-              <p className="text-gray-500 text-[10px]">Activity Tracker</p>
+              <p className="text-gray-500 text-[10px]">Results & Impact Tracker</p>
             </div>
           </div>
 

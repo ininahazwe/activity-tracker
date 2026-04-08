@@ -17,7 +17,10 @@
     "seed": "ts-node --skip-project prisma/seed.ts"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.67",
+    "@ai-sdk/groq": "^3.0.34",
     "@prisma/client": "^5.22.0",
+    "ai": "^6.0.149",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

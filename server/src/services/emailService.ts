@@ -1,6 +1,16 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let resend: InstanceType<typeof Resend> | null = null;
+
+// Initialiser Resend seulement si la clé API existe
+if (process.env.RESEND_API_KEY) {
+    resend = new Resend(process.env.RESEND_API_KEY);
+    console.log('✅ Email service ready (Resend configured)');
+} else {
+    console.warn('⚠️  Email service: RESEND_API_KEY not set (emails will be logged only)');
+}
+
+const SENDER_EMAIL = 'onboarding@resend.dev';
 
 interface SendInvitationParams {
     recipientEmail: string;
@@ -22,19 +32,29 @@ const emailService = {
                                invitedBy,
                            }: SendInvitationParams) => {
         try {
-            if (process.env.NODE_ENV !== 'production') {
-                console.log('📧 [DEV MODE] Email would be sent to:', {
+            // Si pas de clé API, juste logger
+            if (!resend) {
+                console.log('📧 [MOCK - NO API KEY] Invitation email would be sent to:', {
                     to: recipientEmail,
+                    from: SENDER_EMAIL,
                     subject: `You've been invited to Activity Tracker Pro`,
                     invitationLink: `${process.env.FRONTEND_URL}/accept-invitation?token=${invitationToken}`,
                 });
-                return { id: 'dev-email-' + Date.now() };
+                return { id: 'mock-email-' + Date.now() };
             }
-            // Construire le lien d'invitation
+
+            // En dev, log aussi même si on envoie
+            if (process.env.NODE_ENV !== 'production') {
+                console.log('📧 [DEV MODE] Email would be sent to:', {
+                    to: recipientEmail,
+                    from: SENDER_EMAIL,
+                    subject: `You've been invited to Activity Tracker Pro`,
+                });
+            }
+
             const baseUrl = process.env.FRONTEND_URL || 'https://tracker.mfwa.org';
             const invitationLink = `${baseUrl}/accept-invitation?token=${invitationToken}`;
 
-            // Labels pour les rôles
             const roleLabels: Record<string, string> = {
                 ADMIN: 'Administrator',
                 MANAGER: 'Project Manager',
@@ -118,16 +138,22 @@ const emailService = {
       `;
 
             const response = await resend.emails.send({
-                from: process.env.RESEND_FROM_EMAIL || 'tracker@tracker.mfwa.org',
+                from: SENDER_EMAIL,
                 to: recipientEmail,
                 subject,
                 html,
             });
 
-            //console.log(`✅ Invitation email sent to ${recipientEmail}:`, response.id);
+            // Vérifier si l'envoi a échoué
+            if ((response as any).error) {
+                console.error(`❌ Invitation email error to ${recipientEmail}:`, (response as any).error.message);
+                throw new Error((response as any).error.message);
+            }
+
+            console.log(`✅ Invitation email sent to ${recipientEmail} (ID: ${(response as any).data?.id})`);
             return response;
-        } catch (error) {
-            console.error('❌ Failed to send invitation email:', error);
+        } catch (error: any) {
+            console.error('❌ Failed to send invitation email:', error.message || error);
             throw error;
         }
     },
@@ -137,6 +163,24 @@ const emailService = {
      */
     sendWelcome: async (email: string, name: string) => {
         try {
+            // Si pas de clé API, juste logger
+            if (!resend) {
+                console.log('📧 [MOCK - NO API KEY] Welcome email would be sent to:', {
+                    to: email,
+                    from: SENDER_EMAIL,
+                    subject: `Welcome to Activity Tracker Pro`,
+                });
+                return { id: 'mock-email-' + Date.now() };
+            }
+
+            // En dev, log aussi même si on envoie
+            if (process.env.NODE_ENV !== 'production') {
+                console.log('📧 [DEV MODE] Welcome email would be sent to:', {
+                    to: email,
+                    from: SENDER_EMAIL,
+                });
+            }
+
             const baseUrl = process.env.FRONTEND_URL || 'https://tracker.mfwa.org';
 
             const subject = `Welcome to Activity Tracker Pro`;
@@ -183,16 +227,22 @@ const emailService = {
       `;
 
             const response = await resend.emails.send({
-                from: process.env.RESEND_FROM_EMAIL || 'tracker@tracker.mfwa.org',
+                from: SENDER_EMAIL,
                 to: email,
                 subject,
                 html,
             });
 
-            //console.log(`✅ Welcome email sent to ${email}:`, response.id);
+            // Vérifier si l'envoi a échoué
+            if ((response as any).error) {
+                console.error(`❌ Welcome email error to ${email}:`, (response as any).error.message);
+                throw new Error((response as any).error.message);
+            }
+
+            console.log(`✅ Welcome email sent to ${email} (ID: ${(response as any).data?.id})`);
             return response;
-        } catch (error) {
-            console.error('❌ Failed to send welcome email:', error);
+        } catch (error: any) {
+            console.error('❌ Failed to send welcome email:', error.message || error);
             throw error;
         }
     },

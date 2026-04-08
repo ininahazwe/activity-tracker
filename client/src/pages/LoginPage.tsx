@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../stores/authStore";
 import toast from "react-hot-toast";
+// @ts-ignore
+import logo from '../assets/logo.png';
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -35,10 +37,10 @@ export default function LoginPage() {
       <div className="w-[420px] px-4">
         {/* Logo */}
         <div className="text-center mb-10">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-accent to-purple-500 mx-auto mb-4 flex items-center justify-center text-3xl shadow-lg shadow-accent/20">
-            📊
+          <div className="w-24 h-20 rounded-2xl mx-auto mb-4 flex items-center justify-center text-3xl shadow-lg shadow-accent/20">
+            <img src={logo} alt="logo" />
           </div>
-          <h1 className="text-white text-2xl font-extrabold">Activity Tracker Pro</h1>
+          <h1 className="text-white text-2xl font-extrabold">Results & Impact Tracker</h1>
           <p className="text-gray-500 text-sm mt-1">Sign in to your account</p>
         </div>
 
