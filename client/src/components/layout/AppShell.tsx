@@ -1,7 +1,8 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "../../stores/authStore";
 import { useState } from "react";
-import { LogOut } from "lucide-react";
+import { LogOut, Sun, Moon } from "lucide-react";
+import { useThemeStore } from "../../stores/themeStore";
 // @ts-ignore
 import logo from "@/assets/logo.png";
 
@@ -13,7 +14,6 @@ const NAV_ITEMS = [
   { path: "/users", icon: "👤", label: "Users & Roles" },
 ];
 
-// ─── SETTINGS MENU (Admin only) ───
 const SETTINGS_ITEMS = [
   { path: "/settings/projects", icon: "📁", label: "Projects" },
   { path: "/settings/activity-types", icon: "📋", label: "Activity Types" },
@@ -29,50 +29,51 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuthStore();
+  const { theme, toggleTheme } = useThemeStore();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [confirm, setConfirm] = useState(false);
 
-  const initials = user?.name
-      ?.split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase() || "?";
+  const initials =
+      user?.name
+          ?.split(" ")
+          .map((n) => n[0])
+          .join("")
+          .toUpperCase() || "?";
 
   const isAdmin = user?.role === "ADMIN";
   const isManagerOrAdmin = user?.role === "ADMIN" || user?.role === "MANAGER";
 
   return (
-      <div className="flex h-screen overflow-hidden">
-        {/* Sidebar */}
+      <div className="flex h-screen overflow-hidden bg-bg">
+
+        {/* ── Sidebar ── */}
         <aside className="w-60 bg-surface border-r border-border flex flex-col p-4 shrink-0">
+
           {/* Logo */}
           <div className="flex items-center gap-3 px-2 mb-7">
-            <div className="w-16 h-20 rounded-xl flex items-center justify-center text-lg">
+            <div className="w-16 h-20 rounded-xl flex items-center justify-center">
               <img src={logo} alt="logo" />
             </div>
             <div>
-              <h1 className="text-white text-sm font-extrabold">NTENTAN</h1>
-              <p className="text-gray-500 text-[10px]">Results & Impact Tracker</p>
+              <h1 className="nav-text-primary text-sm font-extrabold">NTENTAN</h1>
+              <p className="nav-text-muted text-[10px]">Results & Impact Tracker</p>
             </div>
           </div>
 
           {/* Nav */}
           <nav className="flex-1 space-y-1">
-            {/* Main Menu */}
-            <p className="text-gray-500 text-[9px] font-bold uppercase tracking-widest px-4 mb-3">
+            <p className="nav-text-muted text-[9px] font-bold uppercase tracking-widest px-4 mb-3">
               Main Menu
             </p>
+
             {NAV_ITEMS.map((item) => {
               const active = location.pathname === item.path;
-              // Hide Users & Roles for FIELD agents
               if (item.path === "/users" && !isManagerOrAdmin) return null;
-
               return (
                   <button
                       key={item.path}
                       onClick={() => navigate(item.path)}
-                      className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-lg text-[13px] font-medium transition-all
-                  ${active ? "bg-accent/10 text-accent font-bold" : "text-gray-400 hover:bg-card-hover hover:text-white"}`}
+                      className={`nav-item ${active ? "nav-item--active" : "nav-item--inactive"}`}
                   >
                     <span className="text-base w-6 text-center">{item.icon}</span>
                     {item.label}
@@ -80,55 +81,38 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               );
             })}
 
-            {/* Settings Section (Admin only) */}
+            {/* Settings (Admin only) */}
             {isAdmin && (
-                <>
-                  <div className="my-4 border-t border-border pt-4">
-                    <button
-                        onClick={() => setSettingsOpen(!settingsOpen)}
-                        className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-lg text-[13px] font-medium transition-all
-                    ${
-                            settingsOpen
-                                ? "bg-accent/10 text-accent font-bold"
-                                : "text-gray-400 hover:bg-card-hover hover:text-white"
-                        }`}
-                    >
-                      <span className="text-base w-6 text-center">⚙️</span>
-                      Settings
-                      <span
-                          className={`ml-auto text-[10px] transition-transform ${
-                              settingsOpen ? "rotate-180" : ""
-                          }`}
-                      >
-                    ▼
-                  </span>
-                    </button>
+                <div className="my-4 border-t border-border pt-4">
+                  <button
+                      onClick={() => setSettingsOpen(!settingsOpen)}
+                      className={`nav-item ${settingsOpen ? "nav-item--active" : "nav-item--inactive"}`}
+                  >
+                    <span className="text-base w-6 text-center">⚙️</span>
+                    Settings
+                    <span className={`ml-auto text-[10px] transition-transform ${settingsOpen ? "rotate-180" : ""}`}>
+                  ▼
+                </span>
+                  </button>
 
-                    {/* Settings Submenu */}
-                    {settingsOpen && (
-                        <div className="mt-2 space-y-0.5 ml-2">
-                          {SETTINGS_ITEMS.map((item) => {
-                            const active = location.pathname === item.path;
-                            return (
-                                <button
-                                    key={item.path}
-                                    onClick={() => navigate(item.path)}
-                                    className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg text-[12px] font-medium transition-all
-                            ${
-                                        active
-                                            ? "bg-accent/10 text-accent font-bold"
-                                            : "text-gray-400 hover:bg-card-hover hover:text-white"
-                                    }`}
-                                >
-                                  <span className="text-sm w-5 text-center">{item.icon}</span>
-                                  {item.label}
-                                </button>
-                            );
-                          })}
-                        </div>
-                    )}
-                  </div>
-                </>
+                  {settingsOpen && (
+                      <div className="mt-2 space-y-0.5 ml-2">
+                        {SETTINGS_ITEMS.map((item) => {
+                          const active = location.pathname === item.path;
+                          return (
+                              <button
+                                  key={item.path}
+                                  onClick={() => navigate(item.path)}
+                                  className={`nav-item nav-item--sm ${active ? "nav-item--active" : "nav-item--inactive"}`}
+                              >
+                                <span className="text-sm w-5 text-center">{item.icon}</span>
+                                {item.label}
+                              </button>
+                          );
+                        })}
+                      </div>
+                  )}
+                </div>
             )}
           </nav>
 
@@ -139,13 +123,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 {initials}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-white text-xs font-semibold truncate">{user?.name}</p>
-                <p className="text-gray-500 text-[10px]">{user?.role}</p>
+                <p className="nav-text-primary text-xs font-semibold truncate">{user?.name}</p>
+                <p className="nav-text-muted text-[10px]">{user?.role}</p>
               </div>
-
               <button
                   onClick={() => setConfirm(true)}
-                  className="text-gray-500 hover:text-red-400 transition-colors"
+                  className="nav-text-muted hover:text-red-400 transition-colors"
                   title="Sign out"
               >
                 <LogOut size={18} />
@@ -157,26 +140,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           {confirm && (
               <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
                 <div className="bg-card border border-border rounded-2xl max-w-sm w-full p-8 shadow-2xl">
-                  {/* Icon */}
                   <div className="w-12 h-12 bg-red-500/20 text-red-400 rounded-lg flex items-center justify-center mx-auto mb-4">
                     <LogOut className="w-6 h-6" />
                   </div>
-
-                  {/* Title */}
-                  <h3 className="text-white font-bold text-lg text-center mb-2">
+                  <h3 className="nav-text-primary font-bold text-lg text-center mb-2">
                     Sign Out?
                   </h3>
-
-                  {/* Description */}
-                  <p className="text-gray-400 text-sm text-center mb-6">
+                  <p className="nav-text-muted text-sm text-center mb-6">
                     Are you sure you want to sign out? You'll need to log in again to access your account.
                   </p>
-
-                  {/* Buttons */}
                   <div className="flex gap-3">
                     <button
                         onClick={() => setConfirm(false)}
-                        className="flex-1 px-4 py-2.5 bg-card-hover border border-border text-gray-400 font-semibold rounded-lg hover:text-white hover:border-accent transition-colors"
+                        className="flex-1 px-4 py-2.5 bg-card-hover border border-border nav-text-muted font-semibold rounded-lg hover:border-accent transition-colors"
                     >
                       Cancel
                     </button>
@@ -192,24 +168,39 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           )}
         </aside>
 
-        {/* Main content */}
-        <main className="flex-1 flex flex-col overflow-hidden">
+        {/* ── Main content ── */}
+        <main className="flex-1 flex flex-col overflow-hidden bg-bg">
+
           {/* Header */}
-          <header className="px-7 py-3 border-b border-border flex items-center justify-between shrink-0">
-            <h2 className="text-white text-lg font-extrabold">
+          <header className="px-7 py-3 bg-surface border-b border-border flex items-center justify-between shrink-0">
+            <h2 className="nav-text-primary text-lg font-extrabold">
               {[...NAV_ITEMS, ...SETTINGS_ITEMS].find((n) => n.path === location.pathname)?.icon}{" "}
-              {[...NAV_ITEMS, ...SETTINGS_ITEMS].find((n) => n.path === location.pathname)?.label ||
-                  "Activity Tracker"}
+              {[...NAV_ITEMS, ...SETTINGS_ITEMS].find((n) => n.path === location.pathname)?.label || "Activity Tracker"}
             </h2>
+
             <div className="flex items-center gap-3">
-              <div className="bg-card border border-border rounded-lg px-3 py-1.5 text-xs text-gray-400">
+              {/* Theme switcher */}
+              <button
+                  onClick={toggleTheme}
+                  className="bg-card border border-border rounded-lg p-2 transition-all hover:border-accent"
+                  title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              >
+                {theme === "dark"
+                    ? <Sun size={15} className="text-yellow-400" />
+                    : <Moon size={15} className="text-accent" />
+                }
+              </button>
+
+              {/* Date */}
+              <div className="bg-card border border-border rounded-lg px-3 py-1.5 text-xs nav-text-muted">
                 📅 {new Date().toLocaleDateString()}
               </div>
             </div>
           </header>
 
-          {/* Page */}
+          {/* Page content */}
           <div className="flex-1 overflow-auto p-6">{children}</div>
+
         </main>
       </div>
   );

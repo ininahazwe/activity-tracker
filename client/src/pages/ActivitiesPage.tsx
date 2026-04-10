@@ -5,6 +5,7 @@ import { useAuthStore } from "../stores/authStore";
 import toast from "react-hot-toast";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import ActivityDetailModal from "../components/modals/ActivityDetailModal";
+import { ActivityChatBot } from '../components/ActivityChatBot';
 
 const STATUS_COLORS: Record<string, string> = {
     VALIDATED: "bg-emerald-400/10 text-emerald-400",
@@ -172,7 +173,7 @@ export default function ActivitiesPage() {
                             onChange={(e) => setStatusFilter(e.target.value)}
                             className="w-full px-3 py-2.5 bg-card-hover border border-border rounded-lg text-white text-sm focus:outline-none focus:border-accent transition-colors"
                         >
-                            <option value="all">All Statuses</option>
+                            <option value="all">All Status</option>
                             <option value="DRAFT">Draft</option>
                             <option value="SUBMITTED">Submitted</option>
                             <option value="VALIDATED">Validated</option>
@@ -339,6 +340,9 @@ export default function ActivitiesPage() {
             )}
 
             <ActivityDetailModal activity={selectedActivity} isOpen={modalOpen} onClose={handleCloseModal} />
+
+            {/* ✅ CHATBOT - Affiche seulement si une activité est sélectionnée */}
+            {selectedActivity && modalOpen && <ActivityChatBot projectId={selectedActivity.projectId} />}
         </div>
     );
 }

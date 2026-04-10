@@ -2,7 +2,7 @@ import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
-import rateLimit from "express-rate-limit";
+import chatRoutes from './routes/chat';
 import dotenv from "dotenv";
 
 // ─── ROUTES IMPORTS ───
@@ -42,10 +42,19 @@ app.use(express.json({ limit: "10mb" }));
 
 app.use("/api/", limiter);*/
 
+// ─── AI CHAT ───
+app.use("/api", chatRoutes);
+
 // ─── ROUTES ───
 
 // Auth routes (NO authentication required)
 app.use("/api/auth", authRouter);
+
+// ✅ Route publique accept-invitation
+app.post("/api/users/accept-invitation", (req, res, next) => {
+  req.url = "/accept-invitation";
+  userRouter(req, res, next);
+});
 
 // ─── HEALTH CHECK ───
 
@@ -63,6 +72,7 @@ app.get("/api/health", (_req: Request, res: Response) => {
 app.use("/api/activities", authenticate, activityRouter);
 
 // User routes
+
 app.use("/api/users", authenticate, userRouter);
 
 // Project routes

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { dashboardApi, referenceApi } from "../utils/api";
 import toast from "react-hot-toast";
+import { useThemeStore } from "../stores/themeStore";
 import {
   BarChart,
   Bar,
@@ -17,9 +18,6 @@ import {
 } from "recharts";
 
 // ─── UTILITIES ───
-/**
- * Convertit une date au format ISO (YYYY-MM-DD) en format d'affichage (DD/MM/YYYY)
- */
 const formatDateDisplay = (dateStr: string): string => {
   if (!dateStr) return "";
   const date = new Date(dateStr + "T00:00:00");
@@ -29,9 +27,6 @@ const formatDateDisplay = (dateStr: string): string => {
   return `${day}/${month}/${year}`;
 };
 
-/**
- * Convertit une date du format d'affichage (DD/MM/YYYY) en format ISO (YYYY-MM-DD)
- */
 const parseDateFromDDMMYYYY = (dateStr: string): string => {
   if (!dateStr) return "";
   const parts = dateStr.split("/");
@@ -75,6 +70,15 @@ export default function DashboardPage() {
 
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { theme } = useThemeStore();
+
+  // ── Couleurs adaptées au thème ──
+  const isDark = theme === "dark";
+  const chartGrid      = isDark ? "#1f2937" : "#e5e7eb";
+  const chartAxis      = isDark ? "#6b7280" : "#9ca3af";
+  const tooltipBg      = isDark ? "#111827" : "#ffffff";
+  const tooltipBorder  = isDark ? "#374151" : "#e5e7eb";
+  const tooltipText    = isDark ? "#fff"    : "#111827";
 
   const [filters, setFilters] = useState<Filters>({
     dateFrom: "",
@@ -105,21 +109,17 @@ export default function DashboardPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Extraction corrigée pour descendre dans res.data.data [cite: 48, 50]
   const extractRefs = (res: any): RefItem[] => {
     const actualData = res?.data?.data;
     if (!actualData || !Array.isArray(actualData)) return [];
-    return actualData.map((item: any) => ({
-      id: item.id,
-      name: item.name
-    }));
+    return actualData.map((item: any) => ({ id: item.id, name: item.name }));
   };
 
   useEffect(() => {
     Promise.all([
-      referenceApi.list("country"),        // Catégorie corrigée [cite: 37, 39]
-      referenceApi.list("funder"),         // Catégorie corrigée [cite: 48, 50]
-      referenceApi.list("thematic_focus"), // Catégorie corrigée [cite: 43]
+      referenceApi.list("country"),
+      referenceApi.list("funder"),
+      referenceApi.list("thematic_focus"),
     ])
         .then(([countriesRes, fundersRes, thematicRes]) => {
           setReferenceData({
@@ -171,43 +171,60 @@ export default function DashboardPage() {
     setOpenDropdown(null);
   };
 
-  // Sélecteur utilisant l'ID pour la valeur et le Name pour l'affichage [cite: 7, 48]
-  const CustomSelect = ({ label, items, filterKey }: { label: string; items: RefItem[]; filterKey: keyof Filters }) => (
+  const CustomSelect = ({
+                          label,
+                          items,
+                          filterKey,
+                        }: {
+    label: string;
+    items: RefItem[];
+    filterKey: keyof Filters;
+  }) => (
       <div className="relative">
-        <label className="text-xs text-gray-400 block mb-1">{label}</label>
+        <label className="text-xs text-gray-500 block mb-1">{label}</label>
         <button
             onClick={() => setOpenDropdown(openDropdown === filterKey ? null : filterKey)}
-            className={`w-full bg-gray-700 border ${
-                openDropdown === filterKey ? "border-blue-500 ring-1 ring-blue-500/50" : "border-gray-600"
-            } rounded text-white text-sm px-3 py-2 text-left hover:bg-gray-600 transition truncate flex justify-between items-center`}
+            className={`w-full bg-surface border ${
+                openDropdown === filterKey
+                    ? "border-accent ring-1 ring-accent/30"
+                    : "border-border"
+            } rounded text-sm px-3 py-2 text-left hover:bg-card-hover transition truncate flex justify-between items-center`}
+            style={{ color: "var(--text-primary)" }}
         >
         <span className="truncate">
           {(filters[filterKey] as string[]).length > 0
               ? `${(filters[filterKey] as string[]).length} selected`
               : "All"}
         </span>
-          <span className={`text-[10px] transition-transform ${openDropdown === filterKey ? "rotate-180" : ""}`}>
+          <span
+              className={`text-[10px] transition-transform ${
+                  openDropdown === filterKey ? "rotate-180" : ""
+              }`}
+          >
           ▼
         </span>
         </button>
 
         {openDropdown === filterKey && (
-            <div className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-600 rounded-lg shadow-2xl z-50 min-w-[200px] max-h-60 overflow-y-auto p-1 animate-[fadeIn_0.1s_ease]">
+            <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-2xl z-50 min-w-[200px] max-h-60 overflow-y-auto p-1">
               {items.map((item) => (
                   <label
                       key={item.id}
-                      className="flex items-center gap-2 px-3 py-2 hover:bg-blue-600/20 rounded-md cursor-pointer text-white text-sm transition-colors group"
+                      className="flex items-center gap-2 px-3 py-2 hover:bg-accent/10 rounded-md cursor-pointer text-sm transition-colors group"
+                      style={{ color: "var(--text-primary)" }}
                   >
                     <input
                         type="checkbox"
                         checked={(filters[filterKey] as string[]).includes(item.id)}
                         onChange={() => handleMultiSelectChange(filterKey, item.id)}
-                        className="w-4 h-4 rounded border-gray-600 text-blue-500 accent-blue-500 focus:ring-0"
+                        className="w-4 h-4 rounded border-border text-accent accent-blue-500 focus:ring-0"
                     />
-                    <span className="truncate group-hover:text-blue-200">{item.name}</span>
+                    <span className="truncate group-hover:text-accent">{item.name}</span>
                   </label>
               ))}
-              {items.length === 0 && <div className="p-3 text-gray-500 text-xs text-center">No data available</div>}
+              {items.length === 0 && (
+                  <div className="p-3 text-gray-500 text-xs text-center">No data available</div>
+              )}
             </div>
         )}
       </div>
@@ -225,27 +242,39 @@ export default function DashboardPage() {
 
   return (
       <div className="space-y-6 pb-10" ref={containerRef}>
+        {/* ── Header ── */}
         <div className="flex justify-between items-end">
           <div>
-            <h1 className="text-white text-3xl font-extrabold">Analytics Dashboard</h1>
-            <p className="text-gray-500 text-sm mt-1">Real-time tracking and performance metrics</p>
+            <h1
+                className="text-3xl font-extrabold"
+                style={{ color: "var(--text-primary)" }}
+            >
+              Analytics Dashboard
+            </h1>
+            <p className="text-gray-500 text-sm mt-1">
+              Real-time tracking and performance metrics
+            </p>
           </div>
           <div className="flex gap-2">
-            <button className="px-4 py-2 bg-gray-800 border border-gray-700 text-gray-300 text-xs font-bold rounded-lg hover:bg-gray-700 transition">
+            <button className="px-4 py-2 bg-card border border-border text-gray-400 text-xs font-bold rounded-lg hover:bg-card-hover hover:text-white transition">
               EXPORT DATA
             </button>
           </div>
         </div>
 
-        <div className="card p-6 bg-gray-900/50 border border-gray-800 backdrop-blur-sm">
+        {/* ── Filters panel ── */}
+        <div className="card p-6 border border-border">
           <div className="flex items-center justify-between mb-5">
-            <h3 className="text-white text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+            <h3
+                className="text-xs font-bold uppercase tracking-widest flex items-center gap-2"
+                style={{ color: "var(--text-primary)" }}
+            >
               <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
               Global Filters
             </h3>
             <button
                 onClick={resetFilters}
-                className="text-[10px] font-bold text-gray-500 hover:text-white transition uppercase"
+                className="text-[10px] font-bold text-gray-500 hover:text-accent transition uppercase"
             >
               Clear all filters
             </button>
@@ -253,7 +282,7 @@ export default function DashboardPage() {
 
           <div className="grid grid-cols-5 gap-4">
             <div>
-              <label className="text-xs text-gray-400 block mb-1">From Date</label>
+              <label className="text-xs text-gray-500 block mb-1">From Date</label>
               <input
                   type="text"
                   placeholder="DD/MM/YYYY"
@@ -262,11 +291,12 @@ export default function DashboardPage() {
                     const isoDate = parseDateFromDDMMYYYY(e.target.value);
                     setFilters((p) => ({ ...p, dateFrom: isoDate }));
                   }}
-                  className="w-full bg-gray-700 border border-gray-600 rounded text-white text-sm px-2 py-1.5 focus:border-blue-500 focus:outline-none"
+                  className="w-full bg-surface border border-border rounded text-sm px-2 py-1.5 focus:border-accent focus:outline-none"
+                  style={{ color: "var(--text-primary)" }}
               />
             </div>
             <div>
-              <label className="text-xs text-gray-400 block mb-1">To Date</label>
+              <label className="text-xs text-gray-500 block mb-1">To Date</label>
               <input
                   type="text"
                   placeholder="DD/MM/YYYY"
@@ -275,7 +305,8 @@ export default function DashboardPage() {
                     const isoDate = parseDateFromDDMMYYYY(e.target.value);
                     setFilters((p) => ({ ...p, dateTo: isoDate }));
                   }}
-                  className="w-full bg-gray-700 border border-gray-600 rounded text-white text-sm px-2 py-1.5 focus:border-blue-500 focus:outline-none"
+                  className="w-full bg-surface border border-border rounded text-sm px-2 py-1.5 focus:border-accent focus:outline-none"
+                  style={{ color: "var(--text-primary)" }}
               />
             </div>
 
@@ -285,19 +316,34 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* ── KPI Cards ── */}
         <div className="grid grid-cols-5 gap-4">
           {kpis.map((kpi) => (
-              <div key={kpi.label} className="card p-5 border border-gray-800 hover:border-gray-700 transition-all group">
-                <div className="text-2xl mb-3 group-hover:scale-110 transition-transform">{kpi.icon}</div>
+              <div
+                  key={kpi.label}
+                  className="card p-5 hover:border-border-light transition-all group"
+              >
+                <div className="text-2xl mb-3 group-hover:scale-110 transition-transform">
+                  {kpi.icon}
+                </div>
                 <p className={`text-3xl font-black ${kpi.color}`}>{kpi.value}</p>
-                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mt-1">{kpi.label}</p>
+                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mt-1">
+                  {kpi.label}
+                </p>
               </div>
           ))}
         </div>
 
+        {/* ── Charts ── */}
         <div className="grid grid-cols-3 gap-6">
-          <div className="card p-6 border border-gray-800">
-            <h3 className="text-white text-sm font-bold mb-6">Activities by Status</h3>
+          {/* Pie — Activities by Status */}
+          <div className="card p-6">
+            <h3
+                className="text-sm font-bold mb-6"
+                style={{ color: "var(--text-primary)" }}
+            >
+              Activities by Status
+            </h3>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -315,8 +361,12 @@ export default function DashboardPage() {
                     ))}
                   </Pie>
                   <Tooltip
-                      contentStyle={{ backgroundColor: "#111827", border: "1px solid #374151", borderRadius: "8px" }}
-                      itemStyle={{ color: "#fff", fontSize: "12px" }}
+                      contentStyle={{
+                        backgroundColor: tooltipBg,
+                        border: `1px solid ${tooltipBorder}`,
+                        borderRadius: "8px",
+                      }}
+                      itemStyle={{ color: tooltipText, fontSize: "12px" }}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -324,24 +374,55 @@ export default function DashboardPage() {
             <div className="mt-4 grid grid-cols-2 gap-2">
               {activitiesByStatus.map((entry, i) => (
                   <div key={i} className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                    <span className="text-[10px] text-gray-400 truncate">{entry.status}: {entry.count}</span>
+                    <div
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: COLORS[i % COLORS.length] }}
+                    />
+                    <span className="text-[10px] text-gray-500 truncate">
+                  {entry.status}: {entry.count}
+                </span>
                   </div>
               ))}
             </div>
           </div>
 
-          <div className="card p-6 border border-gray-800">
-            <h3 className="text-white text-sm font-bold mb-6">Participants by Gender</h3>
+          {/* Bar — Participants by Gender */}
+          <div className="card p-6">
+            <h3
+                className="text-sm font-bold mb-6"
+                style={{ color: "var(--text-primary)" }}
+            >
+              Participants by Gender
+            </h3>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={participantsByGender}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
-                  <XAxis dataKey="gender" stroke="#6b7280" fontSize={10} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#6b7280" fontSize={10} tickLine={false} axisLine={false} />
+                  <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke={chartGrid}
+                      vertical={false}
+                  />
+                  <XAxis
+                      dataKey="gender"
+                      stroke={chartAxis}
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                  />
+                  <YAxis
+                      stroke={chartAxis}
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                  />
                   <Tooltip
-                      cursor={{ fill: "rgba(255,255,255,0.05)" }}
-                      contentStyle={{ backgroundColor: "#111827", border: "1px solid #374151", borderRadius: "8px" }}
+                      cursor={{ fill: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)" }}
+                      contentStyle={{
+                        backgroundColor: tooltipBg,
+                        border: `1px solid ${tooltipBorder}`,
+                        borderRadius: "8px",
+                      }}
+                      itemStyle={{ color: tooltipText, fontSize: "12px" }}
                   />
                   <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={40} />
                 </BarChart>
@@ -349,8 +430,14 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="card p-6 border border-gray-800 col-span-3">
-            <h3 className="text-white text-sm font-bold mb-6">Monthly Activity Trend</h3>
+          {/* Area — Monthly Trend (col-span-3) */}
+          <div className="card p-6 col-span-3">
+            <h3
+                className="text-sm font-bold mb-6"
+                style={{ color: "var(--text-primary)" }}
+            >
+              Monthly Activity Trend
+            </h3>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={activitiesTrend}>
@@ -360,11 +447,31 @@ export default function DashboardPage() {
                       <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
-                  <XAxis dataKey="month" stroke="#6b7280" fontSize={10} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#6b7280" fontSize={10} tickLine={false} axisLine={false} />
+                  <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke={chartGrid}
+                      vertical={false}
+                  />
+                  <XAxis
+                      dataKey="month"
+                      stroke={chartAxis}
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                  />
+                  <YAxis
+                      stroke={chartAxis}
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                  />
                   <Tooltip
-                      contentStyle={{ backgroundColor: "#111827", border: "1px solid #374151", borderRadius: "8px" }}
+                      contentStyle={{
+                        backgroundColor: tooltipBg,
+                        border: `1px solid ${tooltipBorder}`,
+                        borderRadius: "8px",
+                      }}
+                      itemStyle={{ color: tooltipText, fontSize: "12px" }}
                   />
                   <Area
                       type="monotone"
@@ -380,6 +487,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* ── Loading badge ── */}
         {loading && (
             <div className="fixed bottom-4 right-4 bg-blue-600 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg animate-bounce">
               REFRESHING...
