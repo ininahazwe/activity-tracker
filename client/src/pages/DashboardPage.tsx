@@ -281,10 +281,13 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid grid-cols-5 gap-4">
+            <CustomSelect label="Countries" items={referenceData.countries} filterKey="countries" />
+            <CustomSelect label="Funders" items={referenceData.funders} filterKey="funders" />
+            <CustomSelect label="Thematic Focus" items={referenceData.thematicFocus} filterKey="thematicFocus" />
             <div>
               <label className="text-xs text-gray-500 block mb-1">From Date</label>
               <input
-                  type="text"
+                  type="date"
                   placeholder="DD/MM/YYYY"
                   value={formatDateDisplay(filters.dateFrom)}
                   onChange={(e) => {
@@ -298,7 +301,7 @@ export default function DashboardPage() {
             <div>
               <label className="text-xs text-gray-500 block mb-1">To Date</label>
               <input
-                  type="text"
+                  type="date"
                   placeholder="DD/MM/YYYY"
                   value={formatDateDisplay(filters.dateTo)}
                   onChange={(e) => {
@@ -309,10 +312,6 @@ export default function DashboardPage() {
                   style={{ color: "var(--text-primary)" }}
               />
             </div>
-
-            <CustomSelect label="Countries" items={referenceData.countries} filterKey="countries" />
-            <CustomSelect label="Funders" items={referenceData.funders} filterKey="funders" />
-            <CustomSelect label="Thematic Focus" items={referenceData.thematicFocus} filterKey="thematicFocus" />
           </div>
         </div>
 

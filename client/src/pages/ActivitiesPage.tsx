@@ -10,8 +10,8 @@ import { ActivityChatBot } from '../components/ActivityChatBot';
 const STATUS_COLORS: Record<string, string> = {
     VALIDATED: "bg-emerald-400/10 text-emerald-400",
     SUBMITTED: "bg-amber-400/10 text-amber-400",
-    DRAFT: "bg-gray-400/10 text-gray-400",
-    REJECTED: "bg-red-400/10 text-red-400",
+    DRAFT:     "bg-gray-400/10 text-gray-400",
+    REJECTED:  "bg-red-400/10 text-red-400",
 };
 
 export default function ActivitiesPage() {
@@ -22,21 +22,16 @@ export default function ActivitiesPage() {
     const [projects, setProjects] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
-    // ─── Filters ───
     const [statusFilter, setStatusFilter] = useState("all");
     const [searchTitle, setSearchTitle] = useState("");
     const [projectFilter, setProjectFilter] = useState("");
     const [dateStartFilter, setDateStartFilter] = useState("");
     const [dateEndFilter, setDateEndFilter] = useState("");
-
-    // ─── Pagination ───
     const [currentPage, setCurrentPage] = useState(1);
 
-    // ─── Modal State ───
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedActivity, setSelectedActivity] = useState<any>(null);
 
-    // ─── Load projects on mount ───
     useEffect(() => {
         const fetchProjects = async () => {
             try {
@@ -46,51 +41,33 @@ export default function ActivitiesPage() {
                 console.error("Failed to fetch projects:", error);
             }
         };
-
         fetchProjects();
     }, []);
 
-    // ─── Load activities ───
     useEffect(() => {
         const fetchActivities = async () => {
             try {
                 setLoading(true);
-
                 const params = new URLSearchParams();
                 params.append("page", String(currentPage));
                 params.append("limit", "10");
-
-                if (statusFilter !== "all") {
-                    params.append("status", statusFilter);
-                }
-                if (searchTitle) {
-                    params.append("search", searchTitle);
-                }
-                if (projectFilter) {
-                    params.append("projectId", projectFilter);
-                }
-                if (dateStartFilter) {
-                    params.append("startDate", dateStartFilter);
-                }
-                if (dateEndFilter) {
-                    params.append("endDate", dateEndFilter);
-                }
+                if (statusFilter !== "all") params.append("status", statusFilter);
+                if (searchTitle)           params.append("search", searchTitle);
+                if (projectFilter)         params.append("projectId", projectFilter);
+                if (dateStartFilter)       params.append("startDate", dateStartFilter);
+                if (dateEndFilter)         params.append("endDate", dateEndFilter);
 
                 const res = await activityApi.list(params);
                 let activities = res.data?.data || [];
 
-                // ─── APPLY ROLE-BASED FILTERING ───
                 if (authUser?.role === "MANAGER") {
-                    // Manager sees own activities + activities from their field agents
                     const managedAgentIds = (res.data?.managedAgents || []).map((a: any) => a.id);
                     activities = activities.filter((a: any) =>
                         a.createdById === authUser.id || managedAgentIds.includes(a.createdById)
                     );
                 } else if (authUser?.role === "FIELD") {
-                    // Field agent sees only their own activities
                     activities = activities.filter((a: any) => a.createdById === authUser.id);
                 }
-                // ADMIN sees everything
 
                 setActivities(activities);
                 setPagination(res.data?.pagination || null);
@@ -101,11 +78,9 @@ export default function ActivitiesPage() {
                 setLoading(false);
             }
         };
-
         fetchActivities();
     }, [currentPage, statusFilter, searchTitle, projectFilter, dateStartFilter, dateEndFilter, authUser?.id, authUser?.role]);
 
-    // ─── Handlers ───
     const handleViewActivity = (activity: any) => {
         setSelectedActivity(activity);
         setModalOpen(true);
@@ -132,8 +107,8 @@ export default function ActivitiesPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-white">Activities</h1>
-                    <p className="text-gray-400 text-sm mt-1">Track and manage your development activities</p>
+                    <h1 className="text-3xl font-bold nav-text-primary">Activities</h1>
+                    <p className="nav-text-muted text-sm mt-1">Track and manage your development activities</p>
                 </div>
                 <button
                     onClick={() => navigate("/activities/new")}
@@ -146,32 +121,33 @@ export default function ActivitiesPage() {
             {/* Filters */}
             <div className="card p-6 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                    {/* Search Filter */}
+
+                    {/* Search */}
                     <div>
-                        <label className="text-gray-400 text-xs font-semibold uppercase block mb-2">
+                        <label className="nav-text-muted text-xs font-semibold uppercase block mb-2">
                             Search Title
                         </label>
                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 nav-text-muted" />
                             <input
                                 type="text"
                                 value={searchTitle}
                                 onChange={(e) => setSearchTitle(e.target.value)}
                                 placeholder="Search activities..."
-                                className="w-full pl-9 pr-3 py-2.5 bg-card-hover border border-border rounded-lg text-white text-sm placeholder-gray-600 focus:outline-none focus:border-accent transition-colors"
+                                className="input-field pl-9"
                             />
                         </div>
                     </div>
 
-                    {/* Status Filter */}
+                    {/* Status */}
                     <div>
-                        <label className="text-gray-400 text-xs font-semibold uppercase block mb-2">
+                        <label className="nav-text-muted text-xs font-semibold uppercase block mb-2">
                             Status
                         </label>
                         <select
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
-                            className="w-full px-3 py-2.5 bg-card-hover border border-border rounded-lg text-white text-sm focus:outline-none focus:border-accent transition-colors"
+                            className="input-field"
                         >
                             <option value="all">All Status</option>
                             <option value="DRAFT">Draft</option>
@@ -181,15 +157,15 @@ export default function ActivitiesPage() {
                         </select>
                     </div>
 
-                    {/* Project Filter */}
+                    {/* Project */}
                     <div>
-                        <label className="text-gray-400 text-xs font-semibold uppercase block mb-2">
+                        <label className="nav-text-muted text-xs font-semibold uppercase block mb-2">
                             Project
                         </label>
                         <select
                             value={projectFilter}
                             onChange={(e) => setProjectFilter(e.target.value)}
-                            className="w-full px-3 py-2.5 bg-card-hover border border-border rounded-lg text-white text-sm focus:outline-none focus:border-accent transition-colors"
+                            className="input-field"
                         >
                             <option value="">All Projects</option>
                             {projects.map((p) => (
@@ -198,34 +174,33 @@ export default function ActivitiesPage() {
                         </select>
                     </div>
 
-                    {/* Start Date Filter */}
+                    {/* Date From */}
                     <div>
-                        <label className="text-gray-400 text-xs font-semibold uppercase block mb-2">
+                        <label className="nav-text-muted text-xs font-semibold uppercase block mb-2">
                             Start Date From
                         </label>
                         <input
                             type="date"
                             value={dateStartFilter}
                             onChange={(e) => setDateStartFilter(e.target.value)}
-                            className="w-full px-3 py-2.5 bg-card-hover border border-border rounded-lg text-white text-sm focus:outline-none focus:border-accent transition-colors"
+                            className="input-field"
                         />
                     </div>
 
-                    {/* End Date Filter */}
+                    {/* Date To */}
                     <div>
-                        <label className="text-gray-400 text-xs font-semibold uppercase block mb-2">
+                        <label className="nav-text-muted text-xs font-semibold uppercase block mb-2">
                             Start Date To
                         </label>
                         <input
                             type="date"
                             value={dateEndFilter}
                             onChange={(e) => setDateEndFilter(e.target.value)}
-                            className="w-full px-3 py-2.5 bg-card-hover border border-border rounded-lg text-white text-sm focus:outline-none focus:border-accent transition-colors"
+                            className="input-field"
                         />
                     </div>
                 </div>
 
-                {/* Clear Filters Button */}
                 {hasActiveFilters && (
                     <div className="flex justify-end pt-2">
                         <button
@@ -238,14 +213,17 @@ export default function ActivitiesPage() {
                 )}
             </div>
 
-            {/* Activities Table */}
+            {/* Table */}
             <div className="card overflow-hidden">
                 {loading ? (
-                    <div className="p-12 text-center text-gray-500 text-sm">Loading...</div>
+                    <div className="p-12 text-center nav-text-muted text-sm">Loading...</div>
                 ) : activities.length === 0 ? (
                     <div className="p-12 text-center">
-                        <p className="text-gray-400 text-sm mb-2">No activities found</p>
-                        <button onClick={() => navigate("/activities/new")} className="text-accent text-sm font-semibold hover:underline">
+                        <p className="nav-text-muted text-sm mb-2">No activities found</p>
+                        <button
+                            onClick={() => navigate("/activities/new")}
+                            className="text-accent text-sm font-semibold hover:underline"
+                        >
                             Create your first activity →
                         </button>
                     </div>
@@ -254,7 +232,7 @@ export default function ActivitiesPage() {
                         <thead>
                         <tr>
                             {["Activity", "Created by", "Project", "Date", "Status"].map((h) => (
-                                <th key={h} className="text-left text-gray-500 font-semibold uppercase tracking-wide text-[10px] px-4 py-3 border-b border-border">
+                                <th key={h} className="text-left nav-text-muted font-semibold uppercase tracking-wide text-[10px] px-4 py-3 border-b border-border">
                                     {h}
                                 </th>
                             ))}
@@ -262,19 +240,23 @@ export default function ActivitiesPage() {
                         </thead>
                         <tbody>
                         {activities.map((a: any) => (
-                            <tr key={a.id} onClick={() => handleViewActivity(a)} className="border-b border-border hover:bg-card-hover cursor-pointer transition-colors">
+                            <tr
+                                key={a.id}
+                                onClick={() => handleViewActivity(a)}
+                                className="border-b border-border hover:bg-card-hover cursor-pointer transition-colors"
+                            >
                                 <td className="px-4 py-3">
-                                    <p className="text-white font-semibold">{a.activityTitle}</p>
+                                    <p className="nav-text-primary font-semibold">{a.activityTitle}</p>
                                 </td>
-                                <td className="px-4 py-3 text-gray-400">{a.createdBy?.name || "Unknown"}</td>
-                                <td className="px-4 py-3 text-gray-400">{a.project?.name}</td>
-                                <td className="px-4 py-3 text-gray-500 font-mono text-[10px]">
+                                <td className="px-4 py-3 nav-text-muted">{a.createdBy?.name || "Unknown"}</td>
+                                <td className="px-4 py-3 nav-text-muted">{a.project?.name}</td>
+                                <td className="px-4 py-3 nav-text-muted font-mono text-[10px]">
                                     {new Date(a.activityStartDate).toLocaleDateString()} - {new Date(a.activityEndDate).toLocaleDateString()}
                                 </td>
                                 <td className="px-4 py-3">
-                                    <span className={`px-2.5 py-1 rounded-md text-[10px] font-semibold ${STATUS_COLORS[a.status] || ""}`}>
-                                        {a.status}
-                                    </span>
+                                        <span className={`px-2.5 py-1 rounded-md text-[10px] font-semibold ${STATUS_COLORS[a.status] || ""}`}>
+                                            {a.status}
+                                        </span>
                                 </td>
                             </tr>
                         ))}
@@ -286,22 +268,29 @@ export default function ActivitiesPage() {
             {/* Pagination */}
             {pagination && pagination.totalPages > 1 && (
                 <div className="flex items-center justify-between mt-6 px-4">
-                    <div className="text-gray-400 text-xs">
-                        Page <span className="text-white font-semibold">{currentPage}</span> of <span className="text-white font-semibold">{pagination.totalPages}</span> ({pagination.total} total)
+                    <div className="nav-text-muted text-xs">
+                        Page{" "}
+                        <span className="nav-text-primary font-semibold">{currentPage}</span>
+                        {" "}of{" "}
+                        <span className="nav-text-primary font-semibold">{pagination.totalPages}</span>
+                        {" "}({pagination.total} total)
                     </div>
 
                     <div className="flex gap-2">
                         <button
                             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                             disabled={currentPage === 1}
-                            className="p-2 rounded-lg border border-border bg-card-hover text-gray-400 hover:text-white hover:border-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="p-2 rounded-lg border border-border bg-card-hover nav-text-muted hover:border-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            style={{ color: "var(--text-muted)" }}
+                            onMouseEnter={(e) => e.currentTarget.style.color = "var(--text-primary)"}
+                            onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-muted)"}
                         >
                             <ChevronLeft className="w-4 h-4" />
                         </button>
 
                         <div className="flex gap-1">
                             {Array.from({ length: Math.min(5, pagination.totalPages) }).map((_, idx) => {
-                                let pageNum;
+                                let pageNum: number;
                                 if (pagination.totalPages <= 5) {
                                     pageNum = idx + 1;
                                 } else if (currentPage <= 3) {
@@ -319,8 +308,10 @@ export default function ActivitiesPage() {
                                         className={`w-8 h-8 rounded-lg text-xs font-semibold transition-colors ${
                                             currentPage === pageNum
                                                 ? "bg-accent/10 text-accent border border-accent/30"
-                                                : "bg-card-hover border border-border text-gray-400 hover:text-white hover:border-accent"
+                                                : "bg-card-hover border border-border nav-text-muted hover:border-accent"
                                         }`}
+                                        onMouseEnter={(e) => { if (currentPage !== pageNum) e.currentTarget.style.color = "var(--text-primary)"; }}
+                                        onMouseLeave={(e) => { if (currentPage !== pageNum) e.currentTarget.style.color = ""; }}
                                     >
                                         {pageNum}
                                     </button>
@@ -331,7 +322,9 @@ export default function ActivitiesPage() {
                         <button
                             onClick={() => setCurrentPage((p) => Math.min(pagination.totalPages, p + 1))}
                             disabled={currentPage === pagination.totalPages}
-                            className="p-2 rounded-lg border border-border bg-card-hover text-gray-400 hover:text-white hover:border-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="p-2 rounded-lg border border-border bg-card-hover nav-text-muted hover:border-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            onMouseEnter={(e) => e.currentTarget.style.color = "var(--text-primary)"}
+                            onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-muted)"}
                         >
                             <ChevronRight className="w-4 h-4" />
                         </button>
@@ -340,8 +333,6 @@ export default function ActivitiesPage() {
             )}
 
             <ActivityDetailModal activity={selectedActivity} isOpen={modalOpen} onClose={handleCloseModal} />
-
-            {/* ✅ CHATBOT - Affiche seulement si une activité est sélectionnée */}
             {selectedActivity && modalOpen && <ActivityChatBot projectId={selectedActivity.projectId} />}
         </div>
     );

@@ -8,16 +8,29 @@ interface ThemeStore {
     toggleTheme: () => void;
 }
 
-function applyTheme(theme: Theme) {
+export function applyTheme(theme: Theme) {
     const root = document.documentElement;
     if (theme === "light") {
         root.classList.add("light");
         root.classList.remove("dark");
     } else {
-        root.classList.remove("light");
         root.classList.add("dark");
+        root.classList.remove("light");
     }
 }
+
+// ── Applique immédiatement le thème sauvegardé, AVANT le premier rendu React ──
+// Ceci évite le flash de mauvais thème (FOUC)
+(function initTheme() {
+    try {
+        const stored = localStorage.getItem("app-theme");
+        const parsed = stored ? JSON.parse(stored) : null;
+        const theme: Theme = parsed?.state?.theme === "light" ? "light" : "dark";
+        applyTheme(theme);
+    } catch {
+        applyTheme("dark");
+    }
+})();
 
 export const useThemeStore = create<ThemeStore>()(
     persist(
@@ -32,7 +45,6 @@ export const useThemeStore = create<ThemeStore>()(
         {
             name: "app-theme",
             onRehydrateStorage: () => (state) => {
-                // Applique le thème sauvegardé au chargement
                 if (state) applyTheme(state.theme);
             },
         }

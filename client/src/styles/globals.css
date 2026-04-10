@@ -4,9 +4,13 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Dark theme (default) ── */
+/* ═══════════════════════════════════════════════════════
+   VARIABLES DE THÈME
+   Les valeurs sont des couleurs CSS standard (hex)
+   Les overrides ci-dessous court-circuitent Tailwind
+   ═══════════════════════════════════════════════════════ */
+
 :root {
-  /* Couleurs structurelles */
   --color-bg:           #0B0E14;
   --color-surface:      #12151E;
   --color-card:         #171B26;
@@ -14,13 +18,10 @@
   --color-elevated:     #1E2233;
   --color-border:       #232838;
   --color-border-light: #2D3348;
-
-  /* Textes */
-  --text-primary: #E4E7F0;
-  --text-muted:   #6B7280;
+  --text-primary:       #E4E7F0;
+  --text-muted:         #6B7280;
 }
 
-/* Version Light */
 :root.light {
   --color-bg:           #F0F2F7;
   --color-surface:      #FFFFFF;
@@ -29,25 +30,38 @@
   --color-elevated:     #EEF1F8;
   --color-border:       #DDE1ED;
   --color-border-light: #C8CEDF;
-
-  --text-primary: #111827;
-  --text-muted:   #4B5563; /* Légèrement plus foncé pour le contraste */
+  --text-primary:       #111827;
+  --text-muted:         #4B5563;
 }
 
-@layer base {
-  body {
-    @apply bg-bg font-sans antialiased;
-    /* text-color géré via variable pour light/dark */
-    color: var(--text-primary, white);
-  }
+/* ═══════════════════════════════════════════════════════
+   OVERRIDE DES CLASSES TAILWIND bg-*
+   Placé après @tailwind utilities → priorité garantie
+   Tailwind compile bg-bg en rgb(11 14 20) figé,
+   on l'écrase ici avec var() dynamique
+   ═══════════════════════════════════════════════════════ */
 
-  :root {
-    --text-primary: #E4E7F0;
-    --text-muted:   #6B7280;
-  }
-  :root.light {
-    --text-primary: #111827;
-    --text-muted:   #6B7280;
+.bg-bg           { background-color: var(--color-bg)           !important; }
+.bg-surface      { background-color: var(--color-surface)      !important; }
+.bg-card         { background-color: var(--color-card)         !important; }
+.bg-card-hover   { background-color: var(--color-card-hover)   !important; }
+.bg-elevated     { background-color: var(--color-elevated)     !important; }
+.border-border   { border-color:     var(--color-border)       !important; }
+.border-border-light { border-color: var(--color-border-light) !important; }
+
+/* hover: variants */
+.hover\:bg-card-hover:hover { background-color: var(--color-card-hover) !important; }
+.hover\:bg-surface:hover    { background-color: var(--color-surface)    !important; }
+.hover\:border-border-light:hover { border-color: var(--color-border-light) !important; }
+
+/* ═══════════════════════════════
+   BASE
+   ═══════════════════════════════ */
+@layer base {
+  html, body {
+    background-color: var(--color-bg);
+    color: var(--text-primary);
+    @apply font-sans antialiased;
   }
 
   .activity-chat-input {
@@ -57,13 +71,19 @@
   ::-webkit-scrollbar { width: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
-    @apply bg-border rounded-full;
+    background-color: var(--color-border);
+    border-radius: 9999px;
   }
 }
 
+/* ═══════════════════════════════
+   COMPONENTS
+   ═══════════════════════════════ */
 @layer components {
   .input-field {
-    @apply w-full bg-surface border border-border rounded-lg px-3 py-2.5 text-sm placeholder-gray-500 outline-none transition-all duration-200;
+    @apply w-full border rounded-lg px-3 py-2.5 text-sm placeholder-gray-500 outline-none transition-all duration-200;
+    background-color: var(--color-surface);
+    border-color: var(--color-border);
     color: var(--text-primary);
   }
   .input-field:focus {
@@ -75,42 +95,41 @@
   }
 
   .btn-ghost {
-    @apply inline-flex items-center gap-2 bg-transparent font-medium text-sm rounded-lg px-4 py-2 transition-all hover:bg-card-hover;
+    @apply inline-flex items-center gap-2 bg-transparent font-medium text-sm rounded-lg px-4 py-2 transition-all;
     color: var(--text-muted);
   }
   .btn-ghost:hover {
+    background-color: var(--color-card-hover);
     color: var(--text-primary);
   }
 
   .card {
-    @apply bg-card border border-border rounded-2xl transition-all duration-150;
+    @apply rounded-2xl transition-all duration-150;
+    background-color: var(--color-card);
+    border: 1px solid var(--color-border);
   }
   .card:hover {
-    @apply border-border-light;
+    border-color: var(--color-border-light);
   }
-}
 
-/* ── Navigation helpers ── */
-.nav-text-primary {
-  color: var(--text-primary);
-}
-.nav-text-muted {
-  color: var(--text-muted);
-}
+  /* ── Navigation ── */
+  .nav-text-primary { color: var(--text-primary); }
+  .nav-text-muted   { color: var(--text-muted); }
 
-.nav-item {
-  @apply flex items-center gap-3 w-full px-4 py-2.5 rounded-lg text-[13px] font-medium transition-all;
-}
-.nav-item--sm {
-  @apply px-3 py-2 text-[12px];
-}
-.nav-item--active {
-  @apply bg-accent/10 text-accent font-bold;
-}
-.nav-item--inactive {
-  color: var(--text-muted);
-}
-.nav-item--inactive:hover {
-  @apply bg-card-hover;
-  color: var(--text-primary);
+  .nav-item {
+    @apply flex items-center gap-3 w-full px-4 py-2.5 rounded-lg text-[13px] font-medium transition-all;
+  }
+  .nav-item--sm {
+    @apply px-3 py-2 text-[12px];
+  }
+  .nav-item--active {
+    @apply bg-accent/10 text-accent font-bold;
+  }
+  .nav-item--inactive {
+    color: var(--text-muted);
+  }
+  .nav-item--inactive:hover {
+    background-color: var(--color-card-hover);
+    color: var(--text-primary);
+  }
 }
