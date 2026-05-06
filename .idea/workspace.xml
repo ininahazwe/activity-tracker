@@ -1,37 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="202580ea-c0d2-4328-94c9-aa54b1e60175" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/client/tsconfig.node.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/Tracker.iml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/php.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/server/.env.example" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/server/.env.production" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/server/package-lock.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/server/package.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/server/prisma/schema.prisma" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/server/prisma/seeds.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/server/reset-password.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/server/src/index.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/server/src/middleware/auth.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/server/src/middleware/errorHandler.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/server/src/routes/activities.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/server/src/routes/auth.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/server/src/routes/dashboard.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/server/src/routes/finance.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/server/src/routes/projects.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/server/src/routes/reference.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/server/src/routes/users.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/server/src/services/audit.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/server/src/services/emailService.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/server/src/utils/validation.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/server/structure.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/server/test-db.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/server/tsconfig.json" beforeDir="false" />
-    </list>
+    <list default="true" id="202580ea-c0d2-4328-94c9-aa54b1e60175" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -126,7 +96,7 @@
       <workItem from="1775724763960" duration="6127000" />
       <workItem from="1775810384462" duration="5911000" />
       <workItem from="1775823358963" duration="9533000" />
-      <workItem from="1778059701377" duration="2219000" />
+      <workItem from="1778059701377" duration="2534000" />
     </task>
     <servers />
   </component>
