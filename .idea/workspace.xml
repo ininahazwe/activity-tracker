@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="202580ea-c0d2-4328-94c9-aa54b1e60175" name="Changes" comment="" />
+    <list default="true" id="202580ea-c0d2-4328-94c9-aa54b1e60175" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.github/workflows/deploy.yml" beforeDir="false" afterPath="$PROJECT_DIR$/.github/workflows/deploy.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/client/package.json" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -41,6 +45,7 @@
       <recent name="C:\Users\Dell\Documents\Dev\Tracker\server" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\Dell\Documents\Dev\Tracker\.github\workflows" />
       <recent name="C:\Users\Dell\Documents\Dev\Tracker\client" />
       <recent name="C:\Users\Dell\Documents\Dev\Tracker\client\src\components\forms" />
       <recent name="C:\Users\Dell\Documents\Dev\Tracker\client\src\components\common" />
@@ -96,7 +101,7 @@
       <workItem from="1775724763960" duration="6127000" />
       <workItem from="1775810384462" duration="5911000" />
       <workItem from="1775823358963" duration="9533000" />
-      <workItem from="1778059701377" duration="2871000" />
+      <workItem from="1778059701377" duration="4514000" />
     </task>
     <servers />
   </component>
