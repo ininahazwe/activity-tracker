@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="202580ea-c0d2-4328-94c9-aa54b1e60175" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/client/tsconfig.node.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/Tracker.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/php.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/server/.env.example" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/server/.env.production" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/server/package-lock.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/server/package.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/server/prisma/schema.prisma" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/server/prisma/seeds.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/server/reset-password.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/server/src/index.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/server/src/middleware/auth.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/server/src/middleware/errorHandler.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/server/src/routes/activities.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/server/src/routes/auth.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/server/src/routes/dashboard.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/server/src/routes/finance.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/server/src/routes/projects.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/server/src/routes/reference.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/server/src/routes/users.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/server/src/services/audit.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/server/src/services/emailService.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/server/src/utils/validation.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/server/structure.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/server/test-db.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/server/tsconfig.json" beforeDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ComposerSettings">
+    <execution />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 2
+}</component>
+  <component name="ProjectId" id="39ZNsAGfGjFtrD6bGihf5EqGvkH" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/Dell/Documents/Dev/Tracker/client/src/assets&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;C:\\Users\\Dell\\Documents\\Dev\\Tracker\\server\\node_modules\\typescript\\lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\Dell\Documents\Dev\Tracker\client\src\assets" />
+      <recent name="C:\Users\Dell\Documents\Dev\Tracker\server" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\Dell\Documents\Dev\Tracker\client" />
+      <recent name="C:\Users\Dell\Documents\Dev\Tracker\client\src\components\forms" />
+      <recent name="C:\Users\Dell\Documents\Dev\Tracker\client\src\components\common" />
+      <recent name="C:\Users\Dell\Documents\Dev\Tracker\client\src\hooks" />
+    </key>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-PS-253.30387.85" />
+        <option value="bundled-php-predefined-a98d8de5180a-0e0d91225499-com.jetbrains.php.sharedIndexes-PS-253.30387.85" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="202580ea-c0d2-4328-94c9-aa54b1e60175" name="Changes" comment="" />
+      <created>1770899837033</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1770899837033</updated>
+      <workItem from="1770899838314" duration="5257000" />
+      <workItem from="1770916495521" duration="699000" />
+      <workItem from="1770971796243" duration="8783000" />
+      <workItem from="1770992852684" duration="8143000" />
+      <workItem from="1771320086225" duration="14247000" />
+      <workItem from="1771404215326" duration="1342000" />
+      <workItem from="1771427410148" duration="4664000" />
+      <workItem from="1771491072675" duration="5110000" />
+      <workItem from="1771496450615" duration="14709000" />
+      <workItem from="1771576850785" duration="18894000" />
+      <workItem from="1771835582722" duration="801000" />
+      <workItem from="1771852016590" duration="62000" />
+      <workItem from="1771936888201" duration="7003000" />
+      <workItem from="1772008770537" duration="19015000" />
+      <workItem from="1772095718026" duration="14414000" />
+      <workItem from="1772127622763" duration="24000" />
+      <workItem from="1772181842469" duration="14959000" />
+      <workItem from="1772208058378" duration="1811000" />
+      <workItem from="1772547790621" duration="9787000" />
+      <workItem from="1772614736204" duration="8592000" />
+      <workItem from="1772635693256" duration="6562000" />
+      <workItem from="1772700449005" duration="7503000" />
+      <workItem from="1773131533719" duration="7762000" />
+      <workItem from="1773161884881" duration="12000" />
+      <workItem from="1773330624128" duration="2000" />
+      <workItem from="1773939435237" duration="1162000" />
+      <workItem from="1774362551397" duration="5286000" />
+      <workItem from="1774435294607" duration="18103000" />
+      <workItem from="1774601535823" duration="427000" />
+      <workItem from="1775575157356" duration="4232000" />
+      <workItem from="1775638129932" duration="11790000" />
+      <workItem from="1775724763960" duration="6127000" />
+      <workItem from="1775810384462" duration="5911000" />
+      <workItem from="1775823358963" duration="9533000" />
+      <workItem from="1778059701377" duration="2219000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="javascript">
+          <url>file://$PROJECT_DIR$/server/src/routes/projects.ts</url>
+          <line>238</line>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+</project>

@@ -1,0 +1,12 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/dxtrmfwa/repositories/activity-tracker
+
+    - cd $DEPLOYPATH/server && npm ci --omit=dev
+    - cd $DEPLOYPATH/server && npm run build
+    - pm2 restart tracker-api
+
+    - cd $DEPLOYPATH/client && npm ci
+    - cd $DEPLOYPATH/client && npm run build
+    - cp -r $DEPLOYPATH/client/dist/. /home/dxtrmfwa/public_html/tracker.mfwa.org/
