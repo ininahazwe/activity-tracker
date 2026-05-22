@@ -1,16 +1,44 @@
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 
-let resend: InstanceType<typeof Resend> | null = null;
+let transporter: nodemailer.Transporter | null = null;
 
-// Initialiser Resend seulement si la clé API existe
-if (process.env.RESEND_API_KEY) {
-    resend = new Resend(process.env.RESEND_API_KEY);
-    console.log('✅ Email service ready (Resend configured)');
-} else {
-    console.warn('⚠️  Email service: RESEND_API_KEY not set (emails will be logged only)');
-}
+// Initialiser le transport SMTP Gmail au démarrage
+const initializeTransporter = () => {
+    const gmailUser = process.env.GMAIL_USER;
+    const gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
 
-const SENDER_EMAIL = 'onboarding@resend.dev';
+    if (!gmailUser || !gmailAppPassword) {
+        console.error(
+            '❌ Email service: GMAIL_USER or GMAIL_APP_PASSWORD not set. ' +
+            'Please configure Google Workspace credentials in .env'
+        );
+        return null;
+    }
+
+    try {
+        transporter = nodemailer.createTransport({
+            host: 'smtp.gmail.com',
+            port: 587,
+            secure: false, // TLS (not SSL)
+            auth: {
+                user: gmailUser,
+                pass: gmailAppPassword, // App Password, not regular password
+            },
+        });
+
+        console.log(`✅ Email service ready (SMTP Gmail configured as ${gmailUser})`);
+        return transporter;
+    } catch (error) {
+        console.error('❌ Failed to initialize email transporter:', error);
+        return null;
+    }
+};
+
+// Initialiser au chargement du module
+initializeTransporter();
+
+const SENDER_EMAIL = process.env.GMAIL_USER || 'techsupport@mfwa.org';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://tracker.mfwa.org';
 
 interface SendInvitationParams {
     recipientEmail: string;
@@ -32,28 +60,14 @@ const emailService = {
                                invitedBy,
                            }: SendInvitationParams) => {
         try {
-            // Si pas de clé API, juste logger
-            if (!resend) {
-                console.log('📧 [MOCK - NO API KEY] Invitation email would be sent to:', {
-                    to: recipientEmail,
-                    from: SENDER_EMAIL,
-                    subject: `You've been invited to Activity Tracker Pro`,
-                    invitationLink: `${process.env.FRONTEND_URL}/accept-invitation?token=${invitationToken}`,
-                });
-                return { id: 'mock-email-' + Date.now() };
+            // Vérifier que le transporter est configuré
+            if (!transporter) {
+                throw new Error(
+                    'Email service not configured. Set GMAIL_USER and GMAIL_APP_PASSWORD in environment variables.'
+                );
             }
 
-            // En dev, log aussi même si on envoie
-            if (process.env.NODE_ENV !== 'production') {
-                console.log('📧 [DEV MODE] Email would be sent to:', {
-                    to: recipientEmail,
-                    from: SENDER_EMAIL,
-                    subject: `You've been invited to Activity Tracker Pro`,
-                });
-            }
-
-            const baseUrl = process.env.FRONTEND_URL || 'https://tracker.mfwa.org';
-            const invitationLink = `${baseUrl}/accept-invitation?token=${invitationToken}`;
+            const invitationLink = `${FRONTEND_URL}/accept-invitation?token=${invitationToken}`;
 
             const roleLabels: Record<string, string> = {
                 ADMIN: 'Administrator',
@@ -137,23 +151,21 @@ const emailService = {
         </html>
       `;
 
-            const response = await resend.emails.send({
+            // Envoyer l'email via SMTP
+            const info = await transporter.sendMail({
                 from: SENDER_EMAIL,
                 to: recipientEmail,
                 subject,
                 html,
             });
 
-            // Vérifier si l'envoi a échoué
-            if ((response as any).error) {
-                console.error(`❌ Invitation email error to ${recipientEmail}:`, (response as any).error.message);
-                throw new Error((response as any).error.message);
-            }
-
-            console.log(`✅ Invitation email sent to ${recipientEmail} (ID: ${(response as any).data?.id})`);
-            return response;
+            console.log(`✅ Invitation email sent to ${recipientEmail} (Message-ID: ${info.messageId})`);
+            return { id: info.messageId };
         } catch (error: any) {
-            console.error('❌ Failed to send invitation email:', error.message || error);
+            console.error(
+                `❌ Failed to send invitation email to ${recipientEmail}:`,
+                error.message || error
+            );
             throw error;
         }
     },
@@ -163,25 +175,12 @@ const emailService = {
      */
     sendWelcome: async (email: string, name: string) => {
         try {
-            // Si pas de clé API, juste logger
-            if (!resend) {
-                console.log('📧 [MOCK - NO API KEY] Welcome email would be sent to:', {
-                    to: email,
-                    from: SENDER_EMAIL,
-                    subject: `Welcome to Activity Tracker Pro`,
-                });
-                return { id: 'mock-email-' + Date.now() };
+            // Vérifier que le transporter est configuré
+            if (!transporter) {
+                throw new Error(
+                    'Email service not configured. Set GMAIL_USER and GMAIL_APP_PASSWORD in environment variables.'
+                );
             }
-
-            // En dev, log aussi même si on envoie
-            if (process.env.NODE_ENV !== 'production') {
-                console.log('📧 [DEV MODE] Welcome email would be sent to:', {
-                    to: email,
-                    from: SENDER_EMAIL,
-                });
-            }
-
-            const baseUrl = process.env.FRONTEND_URL || 'https://tracker.mfwa.org';
 
             const subject = `Welcome to Activity Tracker Pro`;
             const html = `
@@ -211,7 +210,7 @@ const emailService = {
                 <p>Your account has been successfully activated. You can now log in and start tracking activities.</p>
 
                 <center>
-                  <a href="${baseUrl}/login" class="button">Go to Dashboard</a>
+                  <a href="${FRONTEND_URL}/login" class="button">Go to Dashboard</a>
                 </center>
 
                 <p style="margin-top: 30px; color: #666; font-size: 13px;">
@@ -226,23 +225,20 @@ const emailService = {
         </html>
       `;
 
-            const response = await resend.emails.send({
+            const info = await transporter.sendMail({
                 from: SENDER_EMAIL,
                 to: email,
                 subject,
                 html,
             });
 
-            // Vérifier si l'envoi a échoué
-            if ((response as any).error) {
-                console.error(`❌ Welcome email error to ${email}:`, (response as any).error.message);
-                throw new Error((response as any).error.message);
-            }
-
-            console.log(`✅ Welcome email sent to ${email} (ID: ${(response as any).data?.id})`);
-            return response;
+            console.log(`✅ Welcome email sent to ${email} (Message-ID: ${info.messageId})`);
+            return { id: info.messageId };
         } catch (error: any) {
-            console.error('❌ Failed to send welcome email:', error.message || error);
+            console.error(
+                `❌ Failed to send welcome email to ${email}:`,
+                error.message || error
+            );
             throw error;
         }
     },
