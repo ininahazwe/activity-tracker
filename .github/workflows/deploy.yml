@@ -1,4 +1,4 @@
-name: Deploy to Production
+name: 🚀 Deploy Activity Tracker Pro
 
 on:
   push:
@@ -11,122 +11,128 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      # ========== STEP 1: CHECKOUT ==========
       - name: Checkout code
         uses: actions/checkout@v5
 
+      # ========== STEP 2: DEPLOY TO PROD ==========
       - name: Deploy to cPanel
+        id: deploy
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          timeout: 600s
+          command_timeout: 600s
           script: |
             set -e
-            
+
             echo "=== 🚀 Starting deployment: Activity Tracker Pro ==="
-            
+
             # ========== DÉFINITIONS ==========
             REPO_PATH="/home/${{ secrets.SSH_USER }}/repositories/activity-tracker-pro"
             PROD_PATH="/home/${{ secrets.SSH_USER }}/public_html/tracker.mfwa.org"
+            BACKUP_PATH="/home/${{ secrets.SSH_USER }}/backups/tracker-$(date +%Y%m%d-%H%M%S)"
             
-            # ========== GIT PULL (avec logs détaillés) ==========
-            echo "📥 Pulling latest code from main branch..."
+            # ========== BACKUP CURRENT STATE ==========
+            echo "📦 Creating backup..."
+            mkdir -p "$(dirname "$BACKUP_PATH")"
+            cp -r "$PROD_PATH" "$BACKUP_PATH" 2>/dev/null || true
+            echo "✅ Backup created at $BACKUP_PATH"
+
+            # ========== GIT PULL (HARD RESET) ==========
+            echo "📥 Pulling latest code..."
             cd "$REPO_PATH"
             
-            # Affiche l'état actuel
-            echo "  Current commit: $(git rev-parse HEAD)"
-            echo "  Pulling..."
-            
+            echo "  Fetching from origin..."
             git fetch origin main
+            
+            echo "  Hard reset to origin/main..."
             git reset --hard origin/main
             
-            echo "  New commit: $(git rev-parse HEAD)"
-            echo "✅ Git pull successful"
-            
-            # ========== VÉRIFICATION DU CODE SOURCE ==========
+            COMMIT_HASH=$(git rev-parse --short HEAD)
+            echo "✅ Git reset complete (commit: $COMMIT_HASH)"
+
+            # ========== VERIFY SOURCE CODE ==========
             echo "🔍 Verifying source files..."
-            if grep -q "nodemailer" "$REPO_PATH/server/src/services/emailService.ts"; then
-              echo "  ✅ Gmail SMTP (nodemailer) detected in emailService.ts"
-            elif grep -q "Resend" "$REPO_PATH/server/src/services/emailService.ts"; then
-              echo "  ⚠️  WARNING: Old Resend code still in emailService.ts"
-            fi
             
+            if [ -f "$REPO_PATH/server/src/services/emailService.ts" ]; then
+              if grep -q "nodemailer" "$REPO_PATH/server/src/services/emailService.ts"; then
+                echo "  ✅ Gmail SMTP (nodemailer) detected"
+              elif grep -q "Resend" "$REPO_PATH/server/src/services/emailService.ts"; then
+                echo "  ⚠️  WARNING: Resend code still in source!"
+              fi
+            else
+              echo "  ❌ emailService.ts not found!"
+            fi
+
             # ========== FRONTEND BUILD ==========
             echo "🎨 Building frontend..."
             cd "$REPO_PATH/client"
             npm ci --quiet
             npm run build --quiet
             echo "✅ Frontend built"
-            
+
             # ========== BACKEND BUILD ==========
             echo "📦 Building backend..."
             cd "$REPO_PATH/server"
             npm ci --quiet
             npm run build --quiet
             echo "✅ Backend compiled"
+
+            # ========== VERIFY COMPILED CODE ==========
+            echo "🔍 Verifying compiled code..."
             
-            # Vérifie que le build a utilisé le bon code
             if grep -q "nodemailer" "$REPO_PATH/server/dist/services/emailService.js"; then
-              echo "  ✅ Gmail SMTP compiled correctly"
+              echo "  ✅ Gmail SMTP found in compiled code"
             elif grep -q "Resend" "$REPO_PATH/server/dist/services/emailService.js"; then
-              echo "  ⚠️  WARNING: Old Resend code in compiled dist!"
+              echo "  ❌ ERROR: Resend code in compiled dist!"
+              echo "  This means emailService.ts was not updated correctly"
+              exit 1
             fi
-            
-            # ========== CLEANUP PROD (PHASE 1: REMOVE OLD) ==========
-            echo "🧹 Cleaning production directory..."
-            
-            # Stop PM2 process if exists
+
+            # ========== STOP PM2 ==========
+            echo "🛑 Stopping PM2 process..."
             if pm2 list | grep -q "tracker-api"; then
-              echo "  🛑 Stopping tracker-api..."
               pm2 stop tracker-api --silent || true
+              sleep 1
             fi
-            
-            # Remove old process from PM2
             if pm2 list | grep -q "tracker-api"; then
-              echo "  🗑️ Removing tracker-api from PM2..."
               pm2 delete tracker-api --silent || true
             fi
-            
-            # Clean directories
-            echo "  📁 Removing old dist, public, node_modules..."
+            echo "✅ PM2 stopped"
+
+            # ========== CLEAN PROD DIRECTORY ==========
+            echo "🧹 Cleaning production directory..."
             rm -rf "$PROD_PATH/dist"
             rm -rf "$PROD_PATH/public"
             rm -rf "$PROD_PATH/node_modules"
             rm -rf "$PROD_PATH/logs"
-            
+            mkdir -p "$PROD_PATH/logs"
             echo "✅ Production cleaned"
-            
+
             # ========== DEPLOY BACKEND ==========
             echo "📤 Deploying backend files..."
-            mkdir -p "$PROD_PATH"
-            mkdir -p "$PROD_PATH/logs"
-            
             cp -r "$REPO_PATH/server/dist" "$PROD_PATH/dist"
             cp "$REPO_PATH/server/package.json" "$PROD_PATH/package.json"
             cp "$REPO_PATH/server/package-lock.json" "$PROD_PATH/package-lock.json"
-            
-            # NOTE: .env is PRESERVED from production (not overwritten)
-            # Production secrets are managed separately:
-            # GMAIL_USER=yves.cri@gmail.com
-            # GMAIL_APP_PASSWORD=...
-            echo "ℹ️  .env preserved from production (not overwritten)"
-            
             echo "✅ Backend deployed"
-            
+
             # ========== DEPLOY FRONTEND ==========
             echo "📤 Deploying frontend files..."
             mkdir -p "$PROD_PATH/public"
             cp -r "$REPO_PATH/client/dist"/* "$PROD_PATH/public/"
-            echo "✅ Frontend deployed to /public"
-            
+            echo "✅ Frontend deployed"
+
             # ========== INSTALL DEPENDENCIES ==========
             echo "📦 Installing dependencies..."
             cd "$PROD_PATH"
             npm install --omit=dev --quiet
             echo "✅ Dependencies installed"
-            
+
             # ========== PM2 START ==========
-            echo "🚀 Starting PM2 process (tracker-api)..."
+            echo "🚀 Starting PM2 process..."
             pm2 start "$PROD_PATH/dist/index.js" \
               --name "tracker-api" \
               --env "$PROD_PATH/.env" \
@@ -138,24 +144,142 @@ jobs:
             
             sleep 2
             pm2 save --silent
-            echo "✅ PM2 process started and saved"
-            
+            echo "✅ PM2 process started"
+
             # ========== VALIDATION ==========
             echo "🔍 Validating deployment..."
             
-            # Check directories
-            [ -d "$PROD_PATH/dist" ] && echo "  ✅ Backend dist exists" || echo "  ❌ Backend dist missing"
-            [ -d "$PROD_PATH/public" ] && echo "  ✅ Frontend build exists" || echo "  ❌ Frontend build missing"
-            [ -f "$PROD_PATH/package.json" ] && echo "  ✅ package.json exists" || echo "  ❌ package.json missing"
-            [ -f "$PROD_PATH/.env" ] && echo "  ✅ .env exists" || echo "  ❌ .env missing"
+            ERRORS=0
+            
+            # Check files
+            if [ -d "$PROD_PATH/dist" ]; then
+              echo "  ✅ Backend dist exists"
+            else
+              echo "  ❌ Backend dist missing"
+              ERRORS=$((ERRORS + 1))
+            fi
+            
+            if [ -d "$PROD_PATH/public" ]; then
+              echo "  ✅ Frontend build exists"
+            else
+              echo "  ❌ Frontend build missing"
+              ERRORS=$((ERRORS + 1))
+            fi
+            
+            if [ -f "$PROD_PATH/.env" ]; then
+              echo "  ✅ .env exists"
+            else
+              echo "  ❌ .env missing"
+              ERRORS=$((ERRORS + 1))
+            fi
             
             # Check PM2 status
-            echo "📊 PM2 Status:"
-            pm2 list | grep "tracker-api" || echo "  ⚠️ tracker-api not found"
+            if pm2 list | grep -q "tracker-api.*online"; then
+              echo "  ✅ PM2 process online"
+            else
+              echo "  ❌ PM2 process not online"
+              ERRORS=$((ERRORS + 1))
+            fi
             
-            # Check logs for email service
-            echo "📧 Checking email service configuration..."
-            sleep 3
-            pm2 logs tracker-api --nostream | grep -i "email service" | head -1 || echo "  (checking logs...)"
+            # Check for email service in logs
+            sleep 2
+            if pm2 logs tracker-api --nostream | grep -q "Email service ready"; then
+              echo "  ✅ Email service initialized"
+              pm2 logs tracker-api --nostream | grep "Email service ready" | head -1
+            else
+              echo "  ⚠️  Email service not yet initialized"
+            fi
             
-            echo "=== ✨ Deployment complete ==="
+            # Check logs for critical errors
+            if [ -f "$PROD_PATH/logs/error.log" ]; then
+              if grep -q "ECONNREFUSED\|Cannot find module" "$PROD_PATH/logs/error.log"; then
+                echo "  ❌ Critical errors in logs"
+                tail -5 "$PROD_PATH/logs/error.log"
+                ERRORS=$((ERRORS + 1))
+              else
+                echo "  ✅ No critical errors in logs"
+              fi
+            else
+              echo "  ✅ No error logs yet"
+            fi
+            
+            # Exit with status
+            if [ $ERRORS -gt 0 ]; then
+              echo "❌ Validation failed with $ERRORS errors"
+              exit 1
+            else
+              echo "✅ All validations passed"
+            fi
+
+            echo "=== ✨ Deployment complete (commit: $COMMIT_HASH) ==="
+
+      # ========== STEP 3: TEST HEALTH ENDPOINT ==========
+      - name: Test health endpoint
+        id: health_test
+        run: |
+          echo "Testing health endpoint..."
+          for i in {1..5}; do
+            RESPONSE=$(curl -s -w "\n%{http_code}" https://tracker.mfwa.org/api/health)
+            HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+            BODY=$(echo "$RESPONSE" | head -1)
+          
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ Health endpoint OK"
+              exit 0
+            else
+              echo "⏳ Attempt $i/5 failed (HTTP $HTTP_CODE), retrying..."
+              sleep 3
+            fi
+          done
+          
+          echo "❌ Health endpoint failed after 5 attempts"
+          exit 1
+
+      # ========== STEP 4: SUCCESS NOTIFICATION ==========
+      - name: 🎉 Success notification
+        if: success()
+        run: |
+          echo "=== ✨ DEPLOYMENT SUCCESSFUL ==="
+          echo "App: https://tracker.mfwa.org"
+          echo "API: https://tracker.mfwa.org/api/health"
+          echo "Commit: ${{ github.sha }}"
+          echo "Branch: ${{ github.ref_name }}"
+
+      # ========== STEP 5: FAILURE NOTIFICATION + ROLLBACK ==========
+      - name: ⚠️ Failure - Rollback
+        if: failure()
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "❌ Deployment failed, attempting rollback..."
+            
+            PROD_PATH="/home/${{ secrets.SSH_USER }}/public_html/tracker.mfwa.org"
+            BACKUP_DIR="/home/${{ secrets.SSH_USER }}/backups"
+            
+            # Find the most recent backup
+            LATEST_BACKUP=$(ls -td "$BACKUP_DIR"/tracker-* 2>/dev/null | head -1)
+            
+            if [ -n "$LATEST_BACKUP" ] && [ -d "$LATEST_BACKUP" ]; then
+              echo "🔄 Restoring from backup: $LATEST_BACKUP"
+            
+              # Stop PM2
+              if pm2 list | grep -q "tracker-api"; then
+                pm2 stop tracker-api --silent || true
+              fi
+            
+              # Restore files
+              rm -rf "$PROD_PATH"
+              cp -r "$LATEST_BACKUP" "$PROD_PATH"
+            
+              # Restart PM2
+              cd "$PROD_PATH"
+              pm2 start dist/index.js --name tracker-api --env .env --silent
+              sleep 2
+            
+              echo "✅ Rollback completed"
+            else
+              echo "⚠️ No backup found for rollback"
+            fi
