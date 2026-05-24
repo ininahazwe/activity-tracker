@@ -16,7 +16,7 @@ import projectsRouter from './routes/projects';
 
 import { authenticate } from "./middleware/auth";
 
-dotenv.config();
+dotenv.config({ path: './.env' });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
