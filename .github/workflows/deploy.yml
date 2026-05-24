@@ -32,13 +32,14 @@ jobs:
 
             # ========== DÉFINITIONS ==========
             REPO_PATH="/home/${{ secrets.SSH_USER }}/repositories/activity-tracker"
-            PROD_PATH="/home/${{ secrets.SSH_USER }}/public_html/tracker.mfwa.org"
+            PROD_ROOT="/home/${{ secrets.SSH_USER }}/public_html/tracker.mfwa.org"
+            PROD_BACKEND="$PROD_ROOT/api"
             BACKUP_PATH="/home/${{ secrets.SSH_USER }}/backups/tracker-$(date +%Y%m%d-%H%M%S)"
             
             # ========== BACKUP CURRENT STATE ==========
             echo "📦 Creating backup..."
             mkdir -p "$(dirname "$BACKUP_PATH")"
-            cp -r "$PROD_PATH" "$BACKUP_PATH" 2>/dev/null || true
+            cp -r "$PROD_ROOT" "$BACKUP_PATH" 2>/dev/null || true
             echo "✅ Backup created at $BACKUP_PATH"
 
             # ========== GIT PULL (HARD RESET) ==========
@@ -55,23 +56,48 @@ jobs:
             echo "✅ Git reset complete (commit: $COMMIT_HASH)"
 
             # ========== VERIFY SOURCE CODE ==========
-            echo "🔍 Verifying source files..."
+            echo "🔍 Verifying source files exist..."
             
-            if [ -f "$REPO_PATH/server/src/services/emailService.ts" ]; then
-              if grep -q "nodemailer" "$REPO_PATH/server/src/services/emailService.ts"; then
-                echo "  ✅ Gmail SMTP (nodemailer) detected"
-              elif grep -q "Resend" "$REPO_PATH/server/src/services/emailService.ts"; then
-                echo "  ⚠️  WARNING: Resend code still in source!"
-              fi
-            else
+            if [ ! -f "$REPO_PATH/server/src/services/emailService.ts" ]; then
               echo "  ❌ emailService.ts not found!"
+              exit 1
             fi
+            
+            if [ ! -f "$REPO_PATH/server/src/routes/chat.ts" ]; then
+              echo "  ❌ chat.ts not found!"
+              exit 1
+            fi
+            
+            if [ ! -f "$REPO_PATH/server/src/services/ai-providers.ts" ]; then
+              echo "  ❌ ai-providers.ts not found!"
+              exit 1
+            fi
+            
+            echo "✅ All required source files exist"
+
+            # ========== CLEAN BUILD CACHES ==========
+            echo "🧹 Cleaning build caches..."
+            
+            echo "  Cleaning frontend cache..."
+            rm -rf "$REPO_PATH/client/node_modules/.cache" 2>/dev/null || true
+            rm -rf "$REPO_PATH/client/dist" 2>/dev/null || true
+            
+            echo "  Cleaning backend cache..."
+            rm -rf "$REPO_PATH/server/node_modules/.cache" 2>/dev/null || true
+            rm -rf "$REPO_PATH/server/dist" 2>/dev/null || true
+            
+            echo "✅ Caches cleaned"
 
             # ========== FRONTEND BUILD ==========
             echo "🎨 Building frontend..."
             cd "$REPO_PATH/client"
             npm ci --quiet
             npm run build --quiet
+            
+            if [ ! -d "$REPO_PATH/client/dist" ]; then
+              echo "  ❌ Frontend dist build failed!"
+              exit 1
+            fi
             echo "✅ Frontend built"
 
             # ========== BACKEND BUILD ==========
@@ -79,80 +105,116 @@ jobs:
             cd "$REPO_PATH/server"
             npm ci --quiet
             npm run build --quiet
+            
+            if [ ! -d "$REPO_PATH/server/dist" ]; then
+              echo "  ❌ Backend dist build failed!"
+              exit 1
+            fi
             echo "✅ Backend compiled"
 
             # ========== VERIFY COMPILED CODE ==========
-            echo "🔍 Verifying compiled code..."
+            echo "🔍 Verifying compiled backend..."
             
-            if grep -q "nodemailer" "$REPO_PATH/server/dist/services/emailService.js"; then
-              echo "  ✅ Gmail SMTP found in compiled code"
-            elif grep -q "Resend" "$REPO_PATH/server/dist/services/emailService.js"; then
-              echo "  ❌ ERROR: Resend code in compiled dist!"
-              echo "  This means emailService.ts was not updated correctly"
+            if [ ! -f "$REPO_PATH/server/dist/routes/chat.js" ]; then
+              echo "  ❌ ERROR: chat.js not found in dist!"
+              echo "     chat.ts was not compiled properly"
               exit 1
             fi
+            
+            if [ ! -f "$REPO_PATH/server/dist/services/ai-providers.js" ]; then
+              echo "  ❌ ERROR: ai-providers.js not found in dist!"
+              echo "     ai-providers.ts was not compiled properly"
+              exit 1
+            fi
+            
+            if grep -q "Resend" "$REPO_PATH/server/dist/services/emailService.js" 2>/dev/null; then
+              echo "  ❌ ERROR: Old Resend code still in compiled emailService.js!"
+              exit 1
+            fi
+            
+            if grep -q "nodemailer\|gmail" "$REPO_PATH/server/dist/services/emailService.js" 2>/dev/null; then
+              echo "  ✅ Gmail/nodemailer found in compiled code"
+            fi
+            
+            echo "✅ Compiled code verified"
 
             # ========== STOP PM2 ==========
             echo "🛑 Stopping PM2 process..."
             if pm2 list | grep -q "tracker-api"; then
               pm2 stop tracker-api --silent || true
-              sleep 1
-            fi
-            if pm2 list | grep -q "tracker-api"; then
+              sleep 2
               pm2 delete tracker-api --silent || true
             fi
             echo "✅ PM2 stopped"
 
             # ========== CLEAN PROD DIRECTORY ==========
             echo "🧹 Cleaning production directory..."
-            rm -rf "$PROD_PATH/dist"
-            rm -rf "$PROD_PATH/public"
-            rm -rf "$PROD_PATH/node_modules"
-            rm -rf "$PROD_PATH/logs"
-            mkdir -p "$PROD_PATH/logs"
+            rm -rf "$PROD_BACKEND/dist"
+            rm -rf "$PROD_BACKEND/node_modules"
+            rm -rf "$PROD_BACKEND/logs"
+            mkdir -p "$PROD_BACKEND/logs"
+            # Clean frontend files but keep the directory structure
+            rm -rf "$PROD_ROOT/assets"
+            rm -f "$PROD_ROOT/index.html"
+            rm -f "$PROD_ROOT"/*.js
+            rm -f "$PROD_ROOT"/*.css
+            rm -f "$PROD_ROOT"/*.map
             echo "✅ Production cleaned"
+
+            # ========== PRESERVE .env ==========
+            echo "🔒 Preserving .env..."
+            ENV_FILE="$PROD_ROOT/.env"
+            ENV_BACKUP="/tmp/tracker-env-backup-$(date +%s).env"
+            if [ -f "$ENV_FILE" ]; then
+              cp "$ENV_FILE" "$ENV_BACKUP"
+              echo "  ✅ .env backed up to $ENV_BACKUP"
+            else
+              echo "  ⚠️  No existing .env found at $ENV_FILE"
+            fi
 
             # ========== DEPLOY BACKEND ==========
             echo "📤 Deploying backend files..."
-            cp -r "$REPO_PATH/server/dist" "$PROD_PATH/dist"
-            cp "$REPO_PATH/server/package.json" "$PROD_PATH/package.json"
-            cp "$REPO_PATH/server/package-lock.json" "$PROD_PATH/package-lock.json"
+            cp -r "$REPO_PATH/server/dist" "$PROD_BACKEND/dist"
+            cp "$REPO_PATH/server/package.json" "$PROD_BACKEND/package.json"
+            cp "$REPO_PATH/server/package-lock.json" "$PROD_BACKEND/package-lock.json"
             echo "✅ Backend deployed"
 
-            # ========== PRESERVE .env FROM OLD LOCATION ==========
-            echo "🔒 Preserving .env from previous deployment..."
-            OLD_ENV_PATH="/home/${{ secrets.SSH_USER }}/api/.env"
-            if [ -f "$OLD_ENV_PATH" ]; then
-              cp "$OLD_ENV_PATH" "$PROD_PATH/.env"
-              echo "✅ .env preserved from $OLD_ENV_PATH"
+            # ========== RESTORE .env ==========
+            echo "🔒 Restoring .env..."
+            if [ -f "$ENV_BACKUP" ]; then
+              cp "$ENV_BACKUP" "$PROD_ROOT/.env"
+              rm "$ENV_BACKUP"
+              echo "  ✅ .env restored to $PROD_ROOT/.env"
             else
-              echo "⚠️ .env not found at $OLD_ENV_PATH"
+              echo "  ⚠️  Warning: .env not available, checking if it exists in production..."
+              if [ ! -f "$PROD_ROOT/.env" ]; then
+                echo "  ❌ ERROR: .env missing and no backup!"
+                exit 1
+              fi
             fi
 
             # ========== DEPLOY FRONTEND ==========
             echo "📤 Deploying frontend files..."
-            mkdir -p "$PROD_PATH/public"
-            cp -r "$REPO_PATH/client/dist"/* "$PROD_PATH/public/"
-            echo "✅ Frontend deployed"
+            cp -r "$REPO_PATH/client/dist"/* "$PROD_ROOT/"
+            echo "✅ Frontend deployed to root"
 
             # ========== INSTALL DEPENDENCIES ==========
             echo "📦 Installing dependencies..."
-            cd "$PROD_PATH"
+            cd "$PROD_BACKEND"
             npm install --omit=dev --quiet
             echo "✅ Dependencies installed"
 
             # ========== PM2 START ==========
             echo "🚀 Starting PM2 process..."
-            pm2 start "$PROD_PATH/dist/index.js" \
+            pm2 start "$PROD_BACKEND/dist/index.js" \
               --name "tracker-api" \
-              --env "$PROD_PATH/.env" \
               --watch false \
               --max-memory-restart "500M" \
-              --error "$PROD_PATH/logs/error.log" \
-              --output "$PROD_PATH/logs/out.log" \
+              --error "$PROD_BACKEND/logs/error.log" \
+              --output "$PROD_BACKEND/logs/out.log" \
               --silent
             
-            sleep 2
+            sleep 3
             pm2 save --silent
             echo "✅ PM2 process started"
 
@@ -162,55 +224,63 @@ jobs:
             ERRORS=0
             
             # Check files
-            if [ -d "$PROD_PATH/dist" ]; then
+            if [ -d "$PROD_BACKEND/dist" ]; then
               echo "  ✅ Backend dist exists"
             else
               echo "  ❌ Backend dist missing"
               ERRORS=$((ERRORS + 1))
             fi
             
-            if [ -d "$PROD_PATH/public" ]; then
-              echo "  ✅ Frontend build exists"
+            if [ -f "$PROD_ROOT/index.html" ]; then
+              echo "  ✅ Frontend files deployed (index.html exists)"
             else
-              echo "  ❌ Frontend build missing"
+              echo "  ❌ Frontend files missing (index.html not found)"
               ERRORS=$((ERRORS + 1))
             fi
             
-            if [ -f "$PROD_PATH/.env" ]; then
-              echo "  ✅ .env exists"
+            if [ -f "$PROD_ROOT/.env" ]; then
+              echo "  ✅ .env exists at $PROD_ROOT/.env"
             else
               echo "  ❌ .env missing"
               ERRORS=$((ERRORS + 1))
             fi
             
+            # Check critical compiled files
+            if [ -f "$PROD_BACKEND/dist/routes/chat.js" ]; then
+              echo "  ✅ chat.js compiled and deployed"
+            else
+              echo "  ❌ chat.js missing from dist"
+              ERRORS=$((ERRORS + 1))
+            fi
+            
+            if [ -f "$PROD_BACKEND/dist/services/ai-providers.js" ]; then
+              echo "  ✅ ai-providers.js compiled and deployed"
+            else
+              echo "  ❌ ai-providers.js missing from dist"
+              ERRORS=$((ERRORS + 1))
+            fi
+            
             # Check PM2 status
+            sleep 2
             if pm2 list | grep -q "tracker-api.*online"; then
               echo "  ✅ PM2 process online"
             else
               echo "  ❌ PM2 process not online"
+              pm2 logs tracker-api --nostream | tail -20
               ERRORS=$((ERRORS + 1))
             fi
             
-            # Check for email service in logs
-            sleep 2
-            if pm2 logs tracker-api --nostream | grep -q "Email service ready"; then
-              echo "  ✅ Email service initialized"
-              pm2 logs tracker-api --nostream | grep "Email service ready" | head -1
-            else
-              echo "  ⚠️  Email service not yet initialized"
-            fi
-            
             # Check logs for critical errors
-            if [ -f "$PROD_PATH/logs/error.log" ]; then
-              if grep -q "ECONNREFUSED\|Cannot find module" "$PROD_PATH/logs/error.log"; then
+            if [ -f "$PROD_BACKEND/logs/error.log" ]; then
+              if grep -q "ECONNREFUSED\|Cannot find module\|SyntaxError" "$PROD_BACKEND/logs/error.log"; then
                 echo "  ❌ Critical errors in logs"
-                tail -5 "$PROD_PATH/logs/error.log"
+                tail -10 "$PROD_BACKEND/logs/error.log"
                 ERRORS=$((ERRORS + 1))
               else
                 echo "  ✅ No critical errors in logs"
               fi
             else
-              echo "  ✅ No error logs yet"
+              echo "  ✅ No error logs yet (normal)"
             fi
             
             # Exit with status
@@ -228,21 +298,22 @@ jobs:
         id: health_test
         run: |
           echo "Testing health endpoint..."
-          for i in {1..5}; do
+          for i in {1..10}; do
             RESPONSE=$(curl -s -w "\n%{http_code}" https://tracker.mfwa.org/api/health)
             HTTP_CODE=$(echo "$RESPONSE" | tail -1)
             BODY=$(echo "$RESPONSE" | head -1)
           
             if [ "$HTTP_CODE" = "200" ]; then
-              echo "✅ Health endpoint OK"
+              echo "✅ Health endpoint OK (attempt $i)"
+              echo "$BODY"
               exit 0
             else
-              echo "⏳ Attempt $i/5 failed (HTTP $HTTP_CODE), retrying..."
-              sleep 3
+              echo "⏳ Attempt $i/10 failed (HTTP $HTTP_CODE), retrying in 2s..."
+              sleep 2
             fi
           done
           
-          echo "❌ Health endpoint failed after 5 attempts"
+          echo "❌ Health endpoint failed after 10 attempts"
           exit 1
 
       # ========== STEP 4: SUCCESS NOTIFICATION ==========
@@ -266,7 +337,7 @@ jobs:
           script: |
             echo "❌ Deployment failed, attempting rollback..."
             
-            PROD_PATH="/home/${{ secrets.SSH_USER }}/public_html/tracker.mfwa.org"
+            PROD_ROOT="/home/${{ secrets.SSH_USER }}/public_html/tracker.mfwa.org"
             BACKUP_DIR="/home/${{ secrets.SSH_USER }}/backups"
             
             # Find the most recent backup
@@ -278,16 +349,19 @@ jobs:
               # Stop PM2
               if pm2 list | grep -q "tracker-api"; then
                 pm2 stop tracker-api --silent || true
+                sleep 1
+                pm2 delete tracker-api --silent || true
               fi
             
               # Restore files
-              rm -rf "$PROD_PATH"
-              cp -r "$LATEST_BACKUP" "$PROD_PATH"
+              rm -rf "$PROD_ROOT"
+              cp -r "$LATEST_BACKUP" "$PROD_ROOT"
             
               # Restart PM2
-              cd "$PROD_PATH"
-              pm2 start dist/index.js --name tracker-api --env .env --silent
+              cd "$PROD_ROOT/api"
+              pm2 start dist/index.js --name tracker-api --silent
               sleep 2
+              pm2 save --silent
             
               echo "✅ Rollback completed"
             else

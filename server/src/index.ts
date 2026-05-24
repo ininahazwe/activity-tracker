@@ -114,4 +114,5 @@ app.listen(PORT, () => {
   console.log(`🔗 CORS origin: ${process.env.CORS_ORIGIN || "http://localhost:5173"}\n`);
 });
 
+
 export default app;
