@@ -31,7 +31,7 @@ jobs:
             echo "=== 🚀 Starting deployment: Activity Tracker Pro ==="
 
             # ========== DÉFINITIONS ==========
-            REPO_PATH="/home/${{ secrets.SSH_USER }}/repositories/activity-tracker"
+            REPO_PATH="/home/${{ secrets.SSH_USER }}/repositories/activity-tracker-pro"
             PROD_PATH="/home/${{ secrets.SSH_USER }}/public_html/tracker.mfwa.org"
             BACKUP_PATH="/home/${{ secrets.SSH_USER }}/backups/tracker-$(date +%Y%m%d-%H%M%S)"
             
@@ -118,6 +118,16 @@ jobs:
             cp "$REPO_PATH/server/package.json" "$PROD_PATH/package.json"
             cp "$REPO_PATH/server/package-lock.json" "$PROD_PATH/package-lock.json"
             echo "✅ Backend deployed"
+
+            # ========== PRESERVE .env FROM OLD LOCATION ==========
+            echo "🔒 Preserving .env from previous deployment..."
+            OLD_ENV_PATH="/home/${{ secrets.SSH_USER }}/api/.env"
+            if [ -f "$OLD_ENV_PATH" ]; then
+              cp "$OLD_ENV_PATH" "$PROD_PATH/.env"
+              echo "✅ .env preserved from $OLD_ENV_PATH"
+            else
+              echo "⚠️ .env not found at $OLD_ENV_PATH"
+            fi
 
             # ========== DEPLOY FRONTEND ==========
             echo "📤 Deploying frontend files..."
