@@ -274,14 +274,15 @@ jobs:
               ERRORS=$((ERRORS + 1))
             fi
             
-            # Check logs for critical errors
+            # Check logs for critical errors (ignore JWT expiry - it's normal)
             if [ -f "$PROD_BACKEND/logs/error.log" ]; then
-              if grep -q "ECONNREFUSED\|Cannot find module\|SyntaxError" "$PROD_BACKEND/logs/error.log"; then
+              # Only fail on REAL errors, not JWT expiry (which is normal)
+              if grep -q "Cannot find module\|SyntaxError\|ECONNREFUSED" "$PROD_BACKEND/logs/error.log"; then
                 echo "  ❌ Critical errors in logs"
                 tail -10 "$PROD_BACKEND/logs/error.log"
                 ERRORS=$((ERRORS + 1))
               else
-                echo "  ✅ No critical errors in logs"
+                echo "  ✅ No critical errors (JWT expiry is normal)"
               fi
             else
               echo "  ✅ No error logs yet (normal)"
