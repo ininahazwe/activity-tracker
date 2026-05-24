@@ -150,6 +150,10 @@ jobs:
             # ========== CLEAN PROD DIRECTORY ==========
             echo "🧹 Cleaning production directory..."
             rm -rf "$PROD_BACKEND/dist"
+            rm -rf "$PROD_BACKEND/src"
+            rm -rf "$PROD_BACKEND/__MACOSX"
+            rm -f "$PROD_BACKEND/._*"
+            rm -f "$PROD_BACKEND/.DS_Store"
             rm -rf "$PROD_BACKEND/node_modules"
             rm -rf "$PROD_BACKEND/logs"
             mkdir -p "$PROD_BACKEND/logs"
