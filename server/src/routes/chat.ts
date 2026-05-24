@@ -35,7 +35,7 @@ router.post('/chat', async (req: Request, res: Response) => {
         // Récupérer les activités du projet
         const activities = await prisma.activity.findMany({
             where: { projectId,
-                    id: activityId ? activityId : undefined,
+                id: activityId ? activityId : undefined,
             },
             take: 50, // Limiter pour ne pas surcharger le contexte
             include: {
