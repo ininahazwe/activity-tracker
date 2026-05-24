@@ -9,6 +9,7 @@ export const api = axios.create({
     return qs.stringify(params, { arrayFormat: 'repeat' });
   }
 });
+
 // @ts-ignore
 console.log("API URL:", import.meta.env.VITE_API_URL);
 function getToken(): string | null {
