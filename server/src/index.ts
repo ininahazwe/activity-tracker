@@ -2,7 +2,6 @@ import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
-import chatRoutes from './routes/chat';
 import dotenv from "dotenv";
 
 // ─── ROUTES IMPORTS ───
@@ -13,6 +12,7 @@ import dashboardRouter from "./routes/dashboard";
 import financeRouter from "./routes/finance";
 import referenceRouter from './routes/reference';
 import projectsRouter from './routes/projects';
+import chatRoutes from './routes/chat';
 
 import { authenticate } from "./middleware/auth";
 
