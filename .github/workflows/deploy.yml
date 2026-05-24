@@ -31,7 +31,7 @@ jobs:
             echo "=== 🚀 Starting deployment: Activity Tracker Pro ==="
 
             # ========== DÉFINITIONS ==========
-            REPO_PATH="/home/${{ secrets.SSH_USER }}/repositories/activity-tracker-pro"
+            REPO_PATH="/home/${{ secrets.SSH_USER }}/repositories/activity-tracker"
             PROD_PATH="/home/${{ secrets.SSH_USER }}/public_html/tracker.mfwa.org"
             BACKUP_PATH="/home/${{ secrets.SSH_USER }}/backups/tracker-$(date +%Y%m%d-%H%M%S)"
             
