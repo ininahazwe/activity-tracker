@@ -22,90 +22,69 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
-
-            echo "=== 🚀 Starting deployment: assets-mfwa.org (assets-tool) ==="
-
-            # ========== DÉFINITIONS ==========
-            REPO_PATH="/home/${{ secrets.SSH_USER }}/repositories/inventory-app"
-            PROD_PATH="/home/${{ secrets.SSH_USER }}/public_html/assets.mfwa.org"
             
-            # ========== GIT PULL ==========
-            echo "📥 Pulling latest code..."
+            echo "=== 🚀 Starting deployment: Activity Tracker Pro ==="
+            
+            # ========== DÉFINITIONS ==========
+            REPO_PATH="/home/${{ secrets.SSH_USER }}/repositories/activity-tracker-pro"
+            PROD_PATH="/home/${{ secrets.SSH_USER }}/public_html/tracker.mfwa.org"
+            
+            # ========== GIT PULL (avec logs détaillés) ==========
+            echo "📥 Pulling latest code from main branch..."
             cd "$REPO_PATH"
-            git pull origin main --quiet
-            echo "✅ Git pulled successfully"
-
+            
+            # Affiche l'état actuel
+            echo "  Current commit: $(git rev-parse HEAD)"
+            echo "  Pulling..."
+            
+            git fetch origin main
+            git reset --hard origin/main
+            
+            echo "  New commit: $(git rev-parse HEAD)"
+            echo "✅ Git pull successful"
+            
+            # ========== VÉRIFICATION DU CODE SOURCE ==========
+            echo "🔍 Verifying source files..."
+            if grep -q "nodemailer" "$REPO_PATH/server/src/services/emailService.ts"; then
+              echo "  ✅ Gmail SMTP (nodemailer) detected in emailService.ts"
+            elif grep -q "Resend" "$REPO_PATH/server/src/services/emailService.ts"; then
+              echo "  ⚠️  WARNING: Old Resend code still in emailService.ts"
+            fi
+            
             # ========== FRONTEND BUILD ==========
             echo "🎨 Building frontend..."
             cd "$REPO_PATH/client"
             npm ci --quiet
             npm run build --quiet
             echo "✅ Frontend built"
-
-            # ========== INJECT ENVIRONMENT VARIABLES INTO dist/index.html ==========
-            echo "🔧 Injecting environment variables..."
-            cat > /tmp/inject-env.js << 'INJECT_EOF'
-            const fs = require('fs');
-            const path = require('path');
             
-            const distIndexPath = path.join('/home/${{ secrets.SSH_USER }}/repositories/inventory-app/client', 'dist', 'index.html');
-            
-            if (!fs.existsSync(distIndexPath)) {
-              console.error('❌ dist/index.html not found');
-              process.exit(1);
-            }
-            
-            const envVars = {
-              VITE_GOOGLE_CLIENT_ID: process.env.VITE_GOOGLE_CLIENT_ID || '',
-              VITE_CLOUDINARY_CLOUD_NAME: process.env.VITE_CLOUDINARY_CLOUD_NAME || '',
-              VITE_CLOUDINARY_UPLOAD_PRESET: process.env.VITE_CLOUDINARY_UPLOAD_PRESET || '',
-              VITE_API_URL: process.env.VITE_API_URL || '',
-            };
-            
-            const injectionScript = `<script>
-            window.__ENV__ = ${JSON.stringify(envVars, null, 2)};
-            console.log('✅ Environment injected:', window.__ENV__);
-            </script>`;
-            
-            let html = fs.readFileSync(distIndexPath, 'utf-8');
-            const scriptIndex = html.indexOf('<script');
-            
-            if (scriptIndex === -1) {
-              console.error('❌ No <script> tag found');
-              process.exit(1);
-            }
-            
-            html = html.slice(0, scriptIndex) + injectionScript + '\n' + html.slice(scriptIndex);
-            fs.writeFileSync(distIndexPath, html, 'utf-8');
-            console.log('✅ Environment injected into dist/index.html');
-            INJECT_EOF
-            
-            VITE_GOOGLE_CLIENT_ID="${{ secrets.VITE_GOOGLE_CLIENT_ID }}" \
-            VITE_CLOUDINARY_CLOUD_NAME="${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}" \
-            VITE_CLOUDINARY_UPLOAD_PRESET="${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}" \
-            VITE_API_URL="https://assets.mfwa.org/api" \
-            node /tmp/inject-env.js
-
             # ========== BACKEND BUILD ==========
             echo "📦 Building backend..."
             cd "$REPO_PATH/server"
             npm ci --quiet
             npm run build --quiet
             echo "✅ Backend compiled"
-
+            
+            # Vérifie que le build a utilisé le bon code
+            if grep -q "nodemailer" "$REPO_PATH/server/dist/services/emailService.js"; then
+              echo "  ✅ Gmail SMTP compiled correctly"
+            elif grep -q "Resend" "$REPO_PATH/server/dist/services/emailService.js"; then
+              echo "  ⚠️  WARNING: Old Resend code in compiled dist!"
+            fi
+            
             # ========== CLEANUP PROD (PHASE 1: REMOVE OLD) ==========
             echo "🧹 Cleaning production directory..."
             
             # Stop PM2 process if exists
-            if pm2 list | grep -q "assets-tool"; then
-              echo "  🛑 Stopping assets-tool..."
-              pm2 stop assets-tool --silent || true
+            if pm2 list | grep -q "tracker-api"; then
+              echo "  🛑 Stopping tracker-api..."
+              pm2 stop tracker-api --silent || true
             fi
             
             # Remove old process from PM2
-            if pm2 list | grep -q "assets-tool"; then
-              echo "  🗑️ Removing assets-tool from PM2..."
-              pm2 delete assets-tool --silent || true
+            if pm2 list | grep -q "tracker-api"; then
+              echo "  🗑️ Removing tracker-api from PM2..."
+              pm2 delete tracker-api --silent || true
             fi
             
             # Clean directories
@@ -116,7 +95,7 @@ jobs:
             rm -rf "$PROD_PATH/logs"
             
             echo "✅ Production cleaned"
-
+            
             # ========== DEPLOY BACKEND ==========
             echo "📤 Deploying backend files..."
             mkdir -p "$PROD_PATH"
@@ -129,35 +108,27 @@ jobs:
             # NOTE: .env is PRESERVED from production (not overwritten)
             # Production secrets are managed separately:
             # GMAIL_USER=yves.cri@gmail.com
-            # GMAIL_APP_PASSWORD=tttq work ktww cfok
-            # (Manually updated on prod server)
-            #
-            # If you need to update .env from repo in future:
-            # Uncomment the lines below and update server/.env.production
-            # if [ -f "$REPO_PATH/server/.env.production" ]; then
-            #   cp "$REPO_PATH/server/.env.production" "$PROD_PATH/.env"
-            #   echo "✅ .env.production copied"
-            # fi
+            # GMAIL_APP_PASSWORD=...
             echo "ℹ️  .env preserved from production (not overwritten)"
             
             echo "✅ Backend deployed"
-
+            
             # ========== DEPLOY FRONTEND ==========
             echo "📤 Deploying frontend files..."
             mkdir -p "$PROD_PATH/public"
             cp -r "$REPO_PATH/client/dist"/* "$PROD_PATH/public/"
             echo "✅ Frontend deployed to /public"
-
+            
             # ========== INSTALL DEPENDENCIES ==========
             echo "📦 Installing dependencies..."
             cd "$PROD_PATH"
             npm install --omit=dev --quiet
             echo "✅ Dependencies installed"
-
-            # ========== PM2 START (ASSETS-TOOL) ==========
-            echo "🚀 Starting PM2 process (assets-tool)..."
-            pm2 start "$PROD_PATH/dist/server.js" \
-              --name "assets-tool" \
+            
+            # ========== PM2 START ==========
+            echo "🚀 Starting PM2 process (tracker-api)..."
+            pm2 start "$PROD_PATH/dist/index.js" \
+              --name "tracker-api" \
               --env "$PROD_PATH/.env" \
               --watch false \
               --max-memory-restart "500M" \
@@ -168,7 +139,7 @@ jobs:
             sleep 2
             pm2 save --silent
             echo "✅ PM2 process started and saved"
-
+            
             # ========== VALIDATION ==========
             echo "🔍 Validating deployment..."
             
@@ -177,14 +148,14 @@ jobs:
             [ -d "$PROD_PATH/public" ] && echo "  ✅ Frontend build exists" || echo "  ❌ Frontend build missing"
             [ -f "$PROD_PATH/package.json" ] && echo "  ✅ package.json exists" || echo "  ❌ package.json missing"
             [ -f "$PROD_PATH/.env" ] && echo "  ✅ .env exists" || echo "  ❌ .env missing"
-            [ -f "$PROD_PATH/public/index.html" ] && grep -q "window.__ENV__" "$PROD_PATH/public/index.html" && echo "  ✅ Environment variables injected" || echo "  ❌ Environment variables NOT injected"
             
             # Check PM2 status
             echo "📊 PM2 Status:"
-            pm2 list | grep -E "assets-tool|Name" || echo "  ⚠️ assets-tool not found"
+            pm2 list | grep "tracker-api" || echo "  ⚠️ tracker-api not found"
             
-            # Check logs for startup errors
-            echo "📋 Recent logs:"
-            [ -f "$PROD_PATH/logs/error.log" ] && tail -5 "$PROD_PATH/logs/error.log" || echo "  (no error logs yet)"
-
+            # Check logs for email service
+            echo "📧 Checking email service configuration..."
+            sleep 3
+            pm2 logs tracker-api --nostream | grep -i "email service" | head -1 || echo "  (checking logs...)"
+            
             echo "=== ✨ Deployment complete ==="
