@@ -181,6 +181,9 @@ jobs:
             cp -r "$REPO_PATH/server/dist" "$PROD_BACKEND/dist"
             cp "$REPO_PATH/server/package.json" "$PROD_BACKEND/package.json"
             cp "$REPO_PATH/server/package-lock.json" "$PROD_BACKEND/package-lock.json"
+            # Deploy Prisma schema (needed for prisma generate)
+            mkdir -p "$PROD_BACKEND/prisma"
+            cp "$REPO_PATH/server/prisma/schema.prisma" "$PROD_BACKEND/prisma/schema.prisma"
             echo "✅ Backend deployed"
 
             # ========== RESTORE .env ==========
