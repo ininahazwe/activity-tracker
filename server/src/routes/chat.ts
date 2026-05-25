@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 
 /**
  * POST /api/chat
- * Endpoint de chat pour interroger les activités avec IA
+ * Endpoint de chat pour interroger les activités avec Intelligence Artificial
  * Groq en priorité, fallback Claude
  */
 router.post('/chat', async (req: Request, res: Response) => {
