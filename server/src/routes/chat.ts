@@ -1,7 +1,7 @@
 // server/src/routes/chat.ts
 import express, { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { chatWithActivities, formatActivitiesContext, testAIProviders } from '@/services/ai-providers';
+import { chatWithActivities, formatActivitiesContext, testAIProviders } from '../services/ai-providers';
 
 const router = Router();
 const prisma = new PrismaClient();
