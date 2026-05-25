@@ -208,6 +208,11 @@ jobs:
             npm install --omit=dev --quiet
             echo "✅ Dependencies installed"
 
+            # ========== GENERATE PRISMA CLIENT ==========
+            echo "🔧 Generating Prisma client..."
+            npx prisma generate --silent
+            echo "✅ Prisma client generated"
+
             # ========== FINAL CLEANUP: Remove any source files ==========
             echo "🧹 Final cleanup: removing any source files..."
             rm -rf "$PROD_BACKEND/src"
