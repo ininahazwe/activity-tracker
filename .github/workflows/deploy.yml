@@ -208,6 +208,14 @@ jobs:
             npm install --omit=dev --quiet
             echo "✅ Dependencies installed"
 
+            # ========== FINAL CLEANUP: Remove any source files ==========
+            echo "🧹 Final cleanup: removing any source files..."
+            rm -rf "$PROD_BACKEND/src"
+            rm -rf "$PROD_BACKEND/__MACOSX"
+            rm -f "$PROD_BACKEND/._*"
+            rm -f "$PROD_BACKEND/.DS_Store"
+            echo "✅ Source files removed"
+
             # ========== PM2 START ==========
             echo "🚀 Starting PM2 process..."
             pm2 start "$PROD_BACKEND/dist/index.js" \
