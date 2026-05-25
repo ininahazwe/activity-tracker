@@ -210,7 +210,7 @@ jobs:
 
             # ========== GENERATE PRISMA CLIENT ==========
             echo "🔧 Generating Prisma client..."
-            npx prisma generate --silent
+            npx prisma generate
             echo "✅ Prisma client generated"
 
             # ========== FINAL CLEANUP: Remove any source files ==========
