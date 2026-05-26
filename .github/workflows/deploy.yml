@@ -260,8 +260,8 @@ jobs:
               ERRORS=$((ERRORS + 1))
             fi
             
-            if [ -f "$PROD_ROOT/.env" ]; then
-              echo "  ✅ .env exists at $PROD_ROOT/.env"
+            if [ -f "$PROD_BACKEND/.env" ]; then
+              echo "  ✅ .env exists at $PROD_BACKEND/.env"
             else
               echo "  ❌ .env missing"
               ERRORS=$((ERRORS + 1))
