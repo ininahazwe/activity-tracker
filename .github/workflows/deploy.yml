@@ -167,7 +167,8 @@ jobs:
 
             # ========== PRESERVE .env ==========
             echo "🔒 Preserving .env..."
-            ENV_FILE="$PROD_ROOT/.env"
+            # MODIFICATION ICI : Pointer vers PROD_BACKEND au lieu de PROD_ROOT
+            ENV_FILE="$PROD_BACKEND/.env" 
             ENV_BACKUP="/tmp/tracker-env-backup-$(date +%s).env"
             if [ -f "$ENV_FILE" ]; then
               cp "$ENV_FILE" "$ENV_BACKUP"
@@ -189,12 +190,13 @@ jobs:
             # ========== RESTORE .env ==========
             echo "🔒 Restoring .env..."
             if [ -f "$ENV_BACKUP" ]; then
-              cp "$ENV_BACKUP" "$PROD_ROOT/.env"
+              # MODIFICATION ICI : Restaurer dans PROD_BACKEND
+              cp "$ENV_BACKUP" "$PROD_BACKEND/.env"
               rm "$ENV_BACKUP"
-              echo "  ✅ .env restored to $PROD_ROOT/.env"
+              echo "  ✅ .env restored to $PROD_BACKEND/.env"
             else
               echo "  ⚠️  Warning: .env not available, checking if it exists in production..."
-              if [ ! -f "$PROD_ROOT/.env" ]; then
+              if [ ! -f "$PROD_BACKEND/.env" ]; then
                 echo "  ❌ ERROR: .env missing and no backup!"
                 exit 1
               fi
