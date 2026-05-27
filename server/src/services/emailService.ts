@@ -18,8 +18,8 @@ const initializeTransporter = () => {
     try {
         transporter = nodemailer.createTransport({
             host: 'smtp.gmail.com',
-            port: 587,
-            secure: false, // TLS (not SSL)
+            port: 465,
+            secure: true, // TLS (not SSL)
             auth: {
                 user: gmailUser,
                 pass: gmailAppPassword, // App Password, not regular password
