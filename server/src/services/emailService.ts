@@ -18,12 +18,16 @@ const initializeTransporter = () => {
     try {
         transporter = nodemailer.createTransport({
             host: 'smtp.gmail.com',
-            port: 465,
-            secure: true, // TLS (not SSL)
+            port: 587,
+            secure: false, // TLS (pas SSL)
             auth: {
                 user: gmailUser,
-                pass: gmailAppPassword, // App Password, not regular password
+                pass: gmailAppPassword,
             },
+            tls: {
+                // 🔐 Force Nodemailer à accepter la connexion malgré l'interception de l'hébergeur
+                rejectUnauthorized: false
+            }
         });
 
         console.log(`✅ Email service ready (SMTP Gmail configured as ${gmailUser})`);
