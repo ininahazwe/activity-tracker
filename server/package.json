@@ -21,6 +21,7 @@
     "@ai-sdk/groq": "^3.0.35",
     "@getbrevo/brevo": "^5.0.4",
     "@prisma/client": "^5.22.0",
+    "@sendgrid/mail": "^8.1.6",
     "ai": "^6.0.156",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import emailService from '../services/emailService';
+import emailService from '../services/sendgridService';
 import { authenticate, authorize } from "../middleware/auth";
 
 const router = Router();
