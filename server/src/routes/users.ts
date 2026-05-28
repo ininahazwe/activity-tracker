@@ -2,8 +2,8 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import emailService from '../services/sendgridService';
 import { authenticate, authorize } from "../middleware/auth";
+import emailSendgridService from "../services/sendgridService";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -113,7 +113,7 @@ router.post('/invite', authenticate, authorize('ADMIN', 'MANAGER'), async (req, 
 
         // ✨ Envoyer l'email d'invitation avec Resend
         try {
-            await emailService.sendInvitation({
+            await emailSendgridService.sendInvitation({
                 recipientEmail: email,
                 recipientName: name,
                 invitationToken,
@@ -361,7 +361,7 @@ router.post('/:id/resend-invitation', authenticate, authorize('ADMIN', 'MANAGER'
 
         // ✨ Envoyer l'email de renvoi avec Resend
         try {
-            await emailService.sendInvitation({
+            await emailSendgridService.sendInvitation({
                 recipientEmail: user.email,
                 recipientName: user.name,
                 invitationToken,
