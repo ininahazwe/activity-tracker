@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { authenticate, authorize } from "../middleware/auth";
-import resendService from "../services/resendService";
+import gmailService from "../services/gmailService";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -113,12 +113,12 @@ router.post('/invite', authenticate, authorize('ADMIN', 'MANAGER'), async (req, 
 
         // ✨ Envoyer l'email d'invitation avec Resend
         try {
-            await resendService.sendInvitation({
+            await gmailService.sendInvitation({
                 recipientEmail: email,
                 recipientName: name,
                 invitationToken,
                 role: role as 'ADMIN' | 'MANAGER' | 'FIELD',
-                invitedBy: requester.name || 'Un administrateur'
+                invitedBy: requester.name || 'the Administrator'
             });
             console.log(`✅ Email d'invitation envoyé à ${email}`);
         } catch (emailError) {
@@ -361,12 +361,12 @@ router.post('/:id/resend-invitation', authenticate, authorize('ADMIN', 'MANAGER'
 
         // ✨ Envoyer l'email de renvoi avec Resend
         try {
-            await resendService.sendInvitation({
+            await gmailService.sendInvitation({
                 recipientEmail: user.email,
                 recipientName: user.name,
                 invitationToken,
                 role: user.role,
-                invitedBy: requester.name || 'Un administrateur'
+                invitedBy: requester.name || 'the Administrator'
             });
             console.log(`✅ Email de renvoi envoyé à ${user.email}`);
         } catch (emailError) {
