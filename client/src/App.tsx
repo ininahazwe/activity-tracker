@@ -1,24 +1,37 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from "./stores/authStore";
-import LoginPage from "./pages/LoginPage";
 import AppShell from "./components/layout/AppShell";
-import DashboardPage from "./pages/DashboardPage";
-import ActivitiesPage from "./pages/ActivitiesPage";
-import NewActivityPage from "./pages/NewActivityPage";
-import UsersPage from "./pages/UsersPage";
-import FinancePage from "./pages/FinancePage";
-import {
-    ActivityTypesPage,
-    ThematicFocusPage,
-    FundersPage,
-    TargetGroupsPage,
-    CountriesPage,
-    RegionsPage,
-    CitiesPage,
-    ProgrammesPage,
-    ProjectsPage
-} from "./pages/SettingsPages";
+
+// Chargées immédiatement : ce sont les points d'entrée de l'application
+import LoginPage from "./pages/LoginPage";
 import AcceptInvitationPage from "./pages/Acceptinvitationpage.tsx";
+
+// Chargées à la demande, une fois la route atteinte
+const DashboardPage   = lazy(() => import("./pages/DashboardPage"));
+const ActivitiesPage  = lazy(() => import("./pages/ActivitiesPage"));
+const NewActivityPage = lazy(() => import("./pages/NewActivityPage"));
+const UsersPage       = lazy(() => import("./pages/UsersPage"));
+const FinancePage     = lazy(() => import("./pages/FinancePage"));
+
+// Settings : réservées aux admins, regroupées dans un chunk séparé
+const ActivityTypesPage = lazy(() => import("./pages/SettingsPages").then((m) => ({ default: m.ActivityTypesPage })));
+const ThematicFocusPage = lazy(() => import("./pages/SettingsPages").then((m) => ({ default: m.ThematicFocusPage })));
+const FundersPage       = lazy(() => import("./pages/SettingsPages").then((m) => ({ default: m.FundersPage })));
+const TargetGroupsPage  = lazy(() => import("./pages/SettingsPages").then((m) => ({ default: m.TargetGroupsPage })));
+const CountriesPage     = lazy(() => import("./pages/SettingsPages").then((m) => ({ default: m.CountriesPage })));
+const RegionsPage       = lazy(() => import("./pages/SettingsPages").then((m) => ({ default: m.RegionsPage })));
+const CitiesPage        = lazy(() => import("./pages/SettingsPages").then((m) => ({ default: m.CitiesPage })));
+const ProgrammesPage    = lazy(() => import("./pages/SettingsPages").then((m) => ({ default: m.ProgrammesPage })));
+const ProjectsPage      = lazy(() => import("./pages/SettingsPages").then((m) => ({ default: m.ProjectsPage })));
+
+function PageFallback() {
+    return (
+        <div className="flex items-center justify-center py-20">
+            <div className="h-6 w-6 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+        </div>
+    );
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
     const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -44,6 +57,7 @@ export default function App() {
                 element={
                     <ProtectedRoute>
                         <AppShell>
+                            <Suspense fallback={<PageFallback />}>
                             <Routes>
                                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                                 <Route path="/dashboard" element={<DashboardPage />} />
@@ -127,6 +141,7 @@ export default function App() {
                                     }
                                 />
                             </Routes>
+                            </Suspense>
                         </AppShell>
                     </ProtectedRoute>
                 }

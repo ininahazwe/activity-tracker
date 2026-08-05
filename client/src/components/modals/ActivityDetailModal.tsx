@@ -2,8 +2,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { X, AlertCircle, Download } from "lucide-react";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 import ActivityChatBot from "../../components/ActivityChatBot.tsx";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -119,6 +117,12 @@ export default function ActivityDetailModal({ activity, isOpen, onClose }: Activ
                     </div>
                 </div>
             `;
+
+            // Chargés à la demande : ~180 Ko gzip hors du bundle initial
+            const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+                import("html2canvas"),
+                import("jspdf"),
+            ]);
 
             document.body.appendChild(pdfContent);
             const canvas = await html2canvas(pdfContent, { backgroundColor: "#ffffff", scale: 2 });

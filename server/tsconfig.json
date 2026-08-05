@@ -12,11 +12,10 @@
     "resolveJsonModule": true,
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true,
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
-    }
+    "sourceMap": true
+    /* Pas d'alias "paths" ici : tsc ne les réécrit pas à l'émission,
+       les require("@/...") échouent en production (MODULE_NOT_FOUND).
+       Utiliser des chemins relatifs côté serveur. */
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
