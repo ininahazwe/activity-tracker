@@ -5,30 +5,18 @@ import { api } from "../utils/api";
 interface Programme {
     id: string;
     name: string;
-    isActive: boolean;
-}
-
-interface Project {
-    id: string;
-    name: string;
-    slug: string;
     description?: string;
     isActive: boolean;
-    programmeId?: string | null;
-    programme?: { id: string; name: string } | null;
-    _count?: { activities: number; users: number };
+    _count?: { projects: number };
 }
 
 interface FormData {
     name: string;
-    slug: string;
     description: string;
     isActive: boolean;
-    programmeId: string;
 }
 
-export default function ProjectsSettings() {
-    const [projects, setProjects] = useState<Project[]>([]);
+export default function ProgrammesSettings() {
     const [programmes, setProgrammes] = useState<Programme[]>([]);
     const [loading, setLoading] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -36,93 +24,60 @@ export default function ProjectsSettings() {
     const [deletingId, setDeletingId] = useState<string | null>(null);
 
     const [formData, setFormData] = useState<FormData>({
-        name: "", slug: "", description: "", isActive: true, programmeId: "",
+        name: "", description: "", isActive: true,
     });
-    const [customSlug, setCustomSlug] = useState(false);
 
-    useEffect(() => {
-        loadProjects();
-        loadProgrammes();
-    }, []);
+    useEffect(() => { loadProgrammes(); }, []);
 
-    const loadProjects = async () => {
+    const loadProgrammes = async () => {
         try {
             setLoading(true);
-            const response = await api.get("/projects");
-            setProjects(response.data || []);
+            const response = await api.get("/programmes");
+            setProgrammes(response.data || []);
         } catch (error) {
-            console.error("[PROJECTS] Load error:", error);
-            toast.error("Failed to load projects");
+            console.error("[PROGRAMMES] Load error:", error);
+            toast.error("Failed to load programmes");
         } finally {
             setLoading(false);
         }
     };
 
-    const loadProgrammes = async () => {
-        try {
-            const response = await api.get("/programmes");
-            setProgrammes((response.data || []).filter((p: Programme) => p.isActive));
-        } catch (error) {
-            console.error("[PROJECTS] Load programmes error:", error);
-        }
-    };
-
-    const generateSlug = (name: string) =>
-        name.toLowerCase().trim().replace(/\s+/g, "-").replace(/[^\w-]/g, "");
-
-    const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const newName = e.target.value;
-        setFormData((prev) => ({
-            ...prev,
-            name: newName,
-            slug: editingId ? prev.slug : generateSlug(newName),
-        }));
-    };
-
     const resetForm = () => {
-        setFormData({ name: "", slug: "", description: "", isActive: true, programmeId: "" });
+        setFormData({ name: "", description: "", isActive: true });
         setEditingId(null);
         setShowForm(false);
-        setCustomSlug(false);
     };
 
-    const handleEdit = (project: Project) => {
+    const handleEdit = (programme: Programme) => {
         setFormData({
-            name: project.name,
-            slug: project.slug,
-            description: project.description || "",
-            isActive: project.isActive,
-            programmeId: project.programmeId || "",
+            name: programme.name,
+            description: programme.description || "",
+            isActive: programme.isActive,
         });
-        setEditingId(project.id);
+        setEditingId(programme.id);
         setShowForm(true);
-        setCustomSlug(true);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.name.trim() || !formData.slug.trim()) {
-            toast.error("Name and Slug are required"); return;
+        if (!formData.name.trim()) {
+            toast.error("Name is required"); return;
         }
         try {
             setLoading(true);
-            const payload = {
-                ...formData,
-                programmeId: formData.programmeId || null,
-            };
             if (editingId) {
-                const response = await api.put(`/projects/${editingId}`, payload);
-                setProjects((prev) => prev.map((p) => (p.id === editingId ? response.data : p)));
-                toast.success("Project updated successfully");
+                const response = await api.put(`/programmes/${editingId}`, formData);
+                setProgrammes((prev) => prev.map((p) => (p.id === editingId ? response.data : p)));
+                toast.success("Programme updated successfully");
             } else {
-                const response = await api.post("/projects", payload);
-                setProjects((prev) => [...prev, response.data]);
-                toast.success("Project created successfully");
+                const response = await api.post("/programmes", formData);
+                setProgrammes((prev) => [...prev, response.data]);
+                toast.success("Programme created successfully");
             }
             resetForm();
         } catch (error: any) {
-            console.error("[PROJECTS] Submit error:", error);
-            toast.error(error.response?.data?.error || "Failed to save project");
+            console.error("[PROGRAMMES] Submit error:", error);
+            toast.error(error.response?.data?.error || "Failed to save programme");
         } finally {
             setLoading(false);
         }
@@ -131,13 +86,13 @@ export default function ProjectsSettings() {
     const handleDelete = async (id: string) => {
         try {
             setLoading(true);
-            await api.delete(`/projects/${id}`);
-            setProjects((prev) => prev.filter((p) => p.id !== id));
-            toast.success("Project deleted successfully");
+            await api.delete(`/programmes/${id}`);
+            setProgrammes((prev) => prev.filter((p) => p.id !== id));
+            toast.success("Programme deleted successfully");
             setDeletingId(null);
         } catch (error: any) {
-            console.error("[PROJECTS] Delete error:", error);
-            toast.error(error.response?.data?.error || "Failed to delete project");
+            console.error("[PROGRAMMES] Delete error:", error);
+            toast.error(error.response?.data?.error || "Failed to delete programme");
         } finally {
             setLoading(false);
         }
@@ -149,10 +104,10 @@ export default function ProjectsSettings() {
             <div className="flex justify-between items-center">
                 <div>
                     <h1 className="nav-text-primary text-2xl font-bold flex items-center gap-2">
-                        <span>📁</span> Projects
+                        <span>🗂️</span> Programmes
                     </h1>
                     <p className="nav-text-muted text-sm mt-1">
-                        Manage global projects and initiatives for activity tracking
+                        Manage programmes that group related projects and activities
                     </p>
                 </div>
                 {!showForm && (
@@ -160,7 +115,7 @@ export default function ProjectsSettings() {
                         onClick={() => setShowForm(true)}
                         className="px-4 py-2 bg-accent hover:bg-accent-dark text-white text-sm font-bold rounded-lg transition"
                     >
-                        + New Project
+                        + New Programme
                     </button>
                 )}
             </div>
@@ -169,99 +124,23 @@ export default function ProjectsSettings() {
             {showForm && (
                 <div className="card p-6">
                     <h3 className="nav-text-primary font-bold mb-4">
-                        {editingId ? "Edit Project" : "Create New Project"}
+                        {editingId ? "Edit Programme" : "Create New Programme"}
                     </h3>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         {/* Name */}
                         <div>
                             <label className="text-xs nav-text-muted block mb-2 font-bold uppercase">
-                                Project Name *
+                                Programme Name *
                             </label>
                             <input
                                 type="text"
                                 value={formData.name}
-                                onChange={handleNameChange}
-                                placeholder="e.g., West Africa Rights Initiative"
+                                onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                                placeholder="e.g., Media Freedom & Safety"
                                 className="input-field"
                                 disabled={loading}
                             />
-                        </div>
-
-                        {/* Slug */}
-                        <div>
-                            <div className="flex items-center gap-3 mb-2">
-                                <label className="text-xs nav-text-muted font-bold uppercase">
-                                    Slug
-                                </label>
-                                <label className="flex items-center gap-1.5 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={customSlug}
-                                        onChange={(e) => {
-                                            setCustomSlug(e.target.checked);
-                                            if (!e.target.checked) {
-                                                setFormData((prev) => ({
-                                                    ...prev,
-                                                    slug: generateSlug(prev.name),
-                                                }));
-                                            }
-                                        }}
-                                        className="w-3.5 h-3.5 rounded border-border accent-blue-500"
-                                        disabled={loading}
-                                    />
-                                    <span className="text-[10px] nav-text-muted">Customize</span>
-                                </label>
-                            </div>
-                            {customSlug ? (
-                                <>
-                                    <input
-                                        type="text"
-                                        value={formData.slug}
-                                        onChange={(e) =>
-                                            setFormData((prev) => ({
-                                                ...prev,
-                                                slug: e.target.value.toLowerCase().replace(/\s+/g, "-"),
-                                            }))
-                                        }
-                                        placeholder="e.g., west-africa-rights"
-                                        className="input-field"
-                                        disabled={loading}
-                                    />
-                                    <p className="text-[10px] nav-text-muted mt-1">
-                                        Unique identifier (lowercase, hyphens allowed)
-                                    </p>
-                                </>
-                            ) : (
-                                <p className="text-[11px] nav-text-muted font-mono px-3 py-2 bg-card rounded-lg border border-border">
-                                    {formData.slug || <span className="opacity-40">auto-generated from name</span>}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Programme */}
-                        <div>
-                            <label className="text-xs nav-text-muted block mb-2 font-bold uppercase">
-                                Programme
-                            </label>
-                            <select
-                                value={formData.programmeId}
-                                onChange={(e) => setFormData((prev) => ({ ...prev, programmeId: e.target.value }))}
-                                className="input-field"
-                                disabled={loading}
-                            >
-                                <option value="">— No programme —</option>
-                                {programmes.map((prog) => (
-                                    <option key={prog.id} value={prog.id}>
-                                        {prog.name}
-                                    </option>
-                                ))}
-                            </select>
-                            {programmes.length === 0 && (
-                                <p className="text-[10px] nav-text-muted mt-1">
-                                    No active programmes yet. Create one in Settings → Programmes.
-                                </p>
-                            )}
                         </div>
 
                         {/* Description */}
@@ -272,7 +151,7 @@ export default function ProjectsSettings() {
                             <textarea
                                 value={formData.description}
                                 onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                                placeholder="Describe the project..."
+                                placeholder="Describe the programme..."
                                 rows={3}
                                 className="input-field resize-none"
                                 disabled={loading}
@@ -290,7 +169,7 @@ export default function ProjectsSettings() {
                                 disabled={loading}
                             />
                             <label htmlFor="isActive" className="text-sm nav-text-primary">
-                                Active project
+                                Active programme
                             </label>
                         </div>
 
@@ -318,64 +197,57 @@ export default function ProjectsSettings() {
                 </div>
             )}
 
-            {/* Projects List */}
+            {/* Programmes List */}
             <div className="grid gap-3">
-                {loading && !projects.length ? (
-                    <div className="text-center py-8 nav-text-muted">Loading projects...</div>
-                ) : projects.length === 0 ? (
+                {loading && !programmes.length ? (
+                    <div className="text-center py-8 nav-text-muted">Loading programmes...</div>
+                ) : programmes.length === 0 ? (
                     <div className="card p-8 text-center">
-                        <p className="nav-text-muted mb-4">No projects yet</p>
+                        <p className="nav-text-muted mb-4">No programmes yet</p>
                         {!showForm && (
                             <button
                                 onClick={() => setShowForm(true)}
                                 className="px-4 py-2 bg-accent hover:bg-accent-dark text-white text-sm font-bold rounded-lg transition"
                             >
-                                Create your first project
+                                Create your first programme
                             </button>
                         )}
                     </div>
                 ) : (
-                    projects.map((project) => (
+                    programmes.map((programme) => (
                         <div
-                            key={project.id}
+                            key={programme.id}
                             className="card p-4 hover:border-border-light transition flex justify-between items-start group"
                         >
                             <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-1">
-                                    <h4 className="nav-text-primary font-bold text-sm">{project.name}</h4>
-                                    {project.programme && (
-                                        <span className="text-[10px] px-2 py-0.5 bg-accent/10 text-accent rounded font-medium">
-                                            🗂️ {project.programme.name}
-                                        </span>
-                                    )}
-                                    {!project.isActive && (
+                                    <h4 className="nav-text-primary font-bold text-sm">{programme.name}</h4>
+                                    {!programme.isActive && (
                                         <span className="text-[10px] px-2 py-0.5 bg-gray-400/10 text-gray-400 rounded">
                                             Inactive
                                         </span>
                                     )}
                                 </div>
-                                <p className="text-[10px] nav-text-muted font-mono">{project.slug}</p>
-                                {project.description && (
-                                    <p className="text-[11px] nav-text-muted mt-2">{project.description}</p>
+                                {programme.description && (
+                                    <p className="text-[11px] nav-text-muted mt-2">{programme.description}</p>
                                 )}
-                                {project._count && (
+                                {programme._count !== undefined && (
                                     <div className="flex gap-4 mt-2">
-                                        <span className="text-[10px] nav-text-muted">📊 {project._count.activities} activities</span>
-                                        <span className="text-[10px] nav-text-muted">👥 {project._count.users} users</span>
+                                        <span className="text-[10px] nav-text-muted">📁 {programme._count.projects} projects</span>
                                     </div>
                                 )}
                             </div>
 
                             <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition">
                                 <button
-                                    onClick={() => handleEdit(project)}
-                                    disabled={loading || deletingId === project.id}
+                                    onClick={() => handleEdit(programme)}
+                                    disabled={loading || deletingId === programme.id}
                                     className="px-3 py-1 bg-accent hover:bg-accent-dark disabled:opacity-50 text-white text-xs font-bold rounded transition"
                                 >
                                     Edit
                                 </button>
                                 <button
-                                    onClick={() => setDeletingId(project.id)}
+                                    onClick={() => setDeletingId(programme.id)}
                                     disabled={loading || deletingId !== null}
                                     className="px-3 py-1 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 disabled:opacity-50 text-xs font-bold rounded transition"
                                 >
@@ -384,26 +256,26 @@ export default function ProjectsSettings() {
                             </div>
 
                             {/* Delete Confirmation Modal */}
-                            {deletingId === project.id && (
+                            {deletingId === programme.id && (
                                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
                                     <div className="card p-6 max-w-sm w-full shadow-2xl">
                                         <div className="w-12 h-12 bg-red-500/20 text-red-400 rounded-lg flex items-center justify-center mx-auto mb-4">
                                             <span className="text-xl">🗑️</span>
                                         </div>
-                                        <h4 className="nav-text-primary font-bold text-center mb-2">Delete Project?</h4>
+                                        <h4 className="nav-text-primary font-bold text-center mb-2">Delete Programme?</h4>
                                         <p className="nav-text-muted text-sm text-center mb-4">
-                                            {project._count?.activities ? (
+                                            {programme._count?.projects ? (
                                                 <span className="text-red-400">
-                                                    Cannot delete: This project has {project._count.activities} activities
+                                                    Cannot delete: This programme has {programme._count.projects} projects linked
                                                 </span>
                                             ) : (
-                                                `Are you sure you want to delete "${project.name}"? This action cannot be undone.`
+                                                `Are you sure you want to delete "${programme.name}"? This action cannot be undone.`
                                             )}
                                         </p>
                                         <div className="flex gap-2">
-                                            {!project._count?.activities && (
+                                            {!programme._count?.projects && (
                                                 <button
-                                                    onClick={() => handleDelete(project.id)}
+                                                    onClick={() => handleDelete(programme.id)}
                                                     disabled={loading}
                                                     className="flex-1 px-4 py-2 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:border-red-500/40 text-sm font-bold rounded transition disabled:opacity-50"
                                                 >

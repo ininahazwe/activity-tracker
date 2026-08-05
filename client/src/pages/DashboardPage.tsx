@@ -256,7 +256,7 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <button className="px-4 py-2 bg-card border border-border text-gray-400 text-xs font-bold rounded-lg hover:bg-card-hover hover:text-white transition">
+            <button className="px-4 py-2 bg-card border border-border text-gray-400 text-xs font-bold rounded-lg hover:bg-card-hover hover:text-gray-100 transition">
               EXPORT DATA
             </button>
           </div>

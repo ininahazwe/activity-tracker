@@ -15,10 +15,12 @@
   --color-surface:      #12151E;
   --color-card:         #171B26;
   --color-card-hover:   #1C2030;
+  --color-surface-hover:#1A1E2B;
   --color-elevated:     #1E2233;
   --color-border:       #232838;
   --color-border-light: #2D3348;
   --text-primary:       #E4E7F0;
+  --text-secondary:     #B4BACB;
   --text-muted:         #6B7280;
 }
 
@@ -27,10 +29,12 @@
   --color-surface:      #FFFFFF;
   --color-card:         #FFFFFF;
   --color-card-hover:   #F5F7FB;
+  --color-surface-hover:#EDF0F7;
   --color-elevated:     #EEF1F8;
   --color-border:       #DDE1ED;
   --color-border-light: #C8CEDF;
   --text-primary:       #111827;
+  --text-secondary:     #374151;
   --text-muted:         #4B5563;
 }
 
@@ -46,13 +50,35 @@
 .bg-card         { background-color: var(--color-card)         !important; }
 .bg-card-hover   { background-color: var(--color-card-hover)   !important; }
 .bg-elevated     { background-color: var(--color-elevated)     !important; }
+.bg-surface-hover{ background-color: var(--color-surface-hover)!important; }
 .border-border   { border-color:     var(--color-border)       !important; }
 .border-border-light { border-color: var(--color-border-light) !important; }
 
 /* hover: variants */
 .hover\:bg-card-hover:hover { background-color: var(--color-card-hover) !important; }
 .hover\:bg-surface:hover    { background-color: var(--color-surface)    !important; }
+.hover\:bg-surface-hover:hover { background-color: var(--color-surface-hover) !important; }
 .hover\:border-border-light:hover { border-color: var(--color-border-light) !important; }
+
+/* ═══════════════════════════════════════════════════════
+   OVERRIDE DES CLASSES TAILWIND text-gray-*
+   Le code utilise les gris Tailwind statiques, pensés pour
+   le dark uniquement (text-gray-100 = quasi-blanc, donc
+   invisible sur fond clair). On les remappe sur les
+   variables de thème pour qu'ils s'inversent en light.
+   ═══════════════════════════════════════════════════════ */
+
+.text-gray-100, .text-gray-200 { color: var(--text-primary)   !important; }
+.text-gray-300, .text-gray-400 { color: var(--text-secondary) !important; }
+.text-gray-500, .text-gray-600 { color: var(--text-muted)     !important; }
+
+.hover\:text-gray-100:hover, .hover\:text-gray-200:hover { color: var(--text-primary)   !important; }
+.hover\:text-gray-300:hover, .hover\:text-gray-400:hover { color: var(--text-secondary) !important; }
+.hover\:text-gray-500:hover, .hover\:text-gray-600:hover { color: var(--text-muted)     !important; }
+
+/* Placeholders : suivent le thème au lieu d'un gris figé */
+.placeholder-gray-500::placeholder,
+.placeholder-gray-600::placeholder { color: var(--text-muted) !important; opacity: 0.8; }
 
 /* ═══════════════════════════════
    BASE
@@ -65,7 +91,7 @@
   }
 
   .activity-chat-input {
-    color: #4b5563;
+    color: var(--text-primary);
   }
 
   ::-webkit-scrollbar { width: 5px; }

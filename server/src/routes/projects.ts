@@ -7,7 +7,6 @@ const prisma = new PrismaClient();
 
 // ═══════════════════════════════════════════════════════════════
 // GET /api/projects
-// Récupérer tous les projets (avec filtrage selon le rôle)
 // ═══════════════════════════════════════════════════════════════
 
 router.get("/", authenticate, async (req: Request, res: Response): Promise<void> => {
@@ -17,14 +16,10 @@ router.get("/", authenticate, async (req: Request, res: Response): Promise<void>
 
     let where: any = {};
 
-    // Les ADMIN voient tous les projets
-    // Les MANAGER et FIELD ne voient que leurs projets
     if (userRole !== "ADMIN") {
       where = {
         users: {
-          some: {
-            userId: userId,
-          },
+          some: { userId },
         },
       };
     }
@@ -37,6 +32,10 @@ router.get("/", authenticate, async (req: Request, res: Response): Promise<void>
         slug: true,
         description: true,
         isActive: true,
+        programmeId: true,
+        programme: {
+          select: { id: true, name: true },
+        },
         createdAt: true,
         updatedAt: true,
         _count: {
@@ -59,7 +58,6 @@ router.get("/", authenticate, async (req: Request, res: Response): Promise<void>
 
 // ═══════════════════════════════════════════════════════════════
 // GET /api/projects/:id
-// Récupérer un projet spécifique
 // ═══════════════════════════════════════════════════════════════
 
 router.get("/:id", authenticate, async (req: Request, res: Response): Promise<void> => {
@@ -71,23 +69,18 @@ router.get("/:id", authenticate, async (req: Request, res: Response): Promise<vo
     const project = await prisma.project.findUnique({
       where: { id },
       include: {
+        programme: {
+          select: { id: true, name: true },
+        },
         users: {
           include: {
             user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                role: true,
-              },
+              select: { id: true, name: true, email: true, role: true },
             },
           },
         },
         _count: {
-          select: {
-            activities: true,
-            finances: true,
-          },
+          select: { activities: true, finances: true },
         },
       },
     });
@@ -97,7 +90,6 @@ router.get("/:id", authenticate, async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    // Vérifier l'accès
     if (userRole !== "ADMIN") {
       const hasAccess = project.users.some((up) => up.userId === userId);
       if (!hasAccess) {
@@ -115,7 +107,6 @@ router.get("/:id", authenticate, async (req: Request, res: Response): Promise<vo
 
 // ═══════════════════════════════════════════════════════════════
 // POST /api/projects
-// Créer un nouveau projet (Admin seulement)
 // ═══════════════════════════════════════════════════════════════
 
 router.post(
@@ -124,22 +115,26 @@ router.post(
     authorize("ADMIN"),
     async (req: Request, res: Response): Promise<void> => {
       try {
-        const { name, slug, description, isActive } = req.body;
+        const { name, slug, description, isActive, programmeId } = req.body;
 
-        // Validation
         if (!name || !slug) {
           res.status(400).json({ error: "Name and slug are required" });
           return;
         }
 
-        // Vérifier que le slug est unique
-        const existing = await prisma.project.findUnique({
-          where: { slug },
-        });
-
+        const existing = await prisma.project.findUnique({ where: { slug } });
         if (existing) {
           res.status(409).json({ error: "Project with this slug already exists" });
           return;
+        }
+
+        // Vérifier que le programme existe si fourni
+        if (programmeId) {
+          const programme = await prisma.programme.findUnique({ where: { id: programmeId } });
+          if (!programme) {
+            res.status(404).json({ error: "Programme not found" });
+            return;
+          }
         }
 
         const project = await prisma.project.create({
@@ -148,6 +143,10 @@ router.post(
             slug: slug.trim().toLowerCase(),
             description: description?.trim() || null,
             isActive: isActive ?? true,
+            programmeId: programmeId || null,
+          },
+          include: {
+            programme: { select: { id: true, name: true } },
           },
         });
 
@@ -161,7 +160,6 @@ router.post(
 
 // ═══════════════════════════════════════════════════════════════
 // PUT /api/projects/:id
-// Mettre à jour un projet (Admin seulement)
 // ═══════════════════════════════════════════════════════════════
 
 router.put(
@@ -171,26 +169,27 @@ router.put(
     async (req: Request, res: Response): Promise<void> => {
       try {
         const { id } = req.params;
-        const { name, slug, description, isActive } = req.body;
+        const { name, slug, description, isActive, programmeId } = req.body;
 
-        // Vérifier que le projet existe
-        const project = await prisma.project.findUnique({
-          where: { id },
-        });
-
+        const project = await prisma.project.findUnique({ where: { id } });
         if (!project) {
           res.status(404).json({ error: "Project not found" });
           return;
         }
 
-        // Si le slug change, vérifier qu'il est unique
         if (slug && slug !== project.slug) {
-          const existing = await prisma.project.findUnique({
-            where: { slug },
-          });
-
+          const existing = await prisma.project.findUnique({ where: { slug } });
           if (existing) {
             res.status(409).json({ error: "Project with this slug already exists" });
+            return;
+          }
+        }
+
+        // Vérifier que le programme existe si fourni
+        if (programmeId) {
+          const programme = await prisma.programme.findUnique({ where: { id: programmeId } });
+          if (!programme) {
+            res.status(404).json({ error: "Programme not found" });
             return;
           }
         }
@@ -202,6 +201,10 @@ router.put(
             ...(slug && { slug: slug.trim().toLowerCase() }),
             ...(description !== undefined && { description: description?.trim() || null }),
             ...(isActive !== undefined && { isActive }),
+            programmeId: programmeId !== undefined ? (programmeId || null) : undefined,
+          },
+          include: {
+            programme: { select: { id: true, name: true } },
           },
         });
 
@@ -215,7 +218,6 @@ router.put(
 
 // ═══════════════════════════════════════════════════════════════
 // DELETE /api/projects/:id
-// Supprimer un projet (Admin seulement)
 // ═══════════════════════════════════════════════════════════════
 
 router.delete(
@@ -226,13 +228,10 @@ router.delete(
       try {
         const { id } = req.params;
 
-        // Vérifier que le projet existe
         const project = await prisma.project.findUnique({
           where: { id },
           include: {
-            _count: {
-              select: { activities: true },
-            },
+            _count: { select: { activities: true } },
           },
         });
 
@@ -241,7 +240,6 @@ router.delete(
           return;
         }
 
-        // Vérifier qu'il n'y a pas d'activités associées
         if (project._count.activities > 0) {
           res.status(400).json({
             error: `Cannot delete project with ${project._count.activities} associated activities`,
@@ -249,15 +247,8 @@ router.delete(
           return;
         }
 
-        // Supprimer d'abord les associations utilisateurs
-        await prisma.userProject.deleteMany({
-          where: { projectId: id },
-        });
-
-        // Puis supprimer le projet
-        await prisma.project.delete({
-          where: { id },
-        });
+        await prisma.userProject.deleteMany({ where: { projectId: id } });
+        await prisma.project.delete({ where: { id } });
 
         res.json({ message: "Project deleted successfully" });
       } catch (error) {
@@ -269,7 +260,6 @@ router.delete(
 
 // ═══════════════════════════════════════════════════════════════
 // POST /api/projects/:id/users
-// Ajouter un utilisateur à un projet (Admin seulement)
 // ═══════════════════════════════════════════════════════════════
 
 router.post(
@@ -286,47 +276,28 @@ router.post(
           return;
         }
 
-        // Vérifier que le projet existe
-        const project = await prisma.project.findUnique({
-          where: { id },
-        });
-
+        const project = await prisma.project.findUnique({ where: { id } });
         if (!project) {
           res.status(404).json({ error: "Project not found" });
           return;
         }
 
-        // Vérifier que l'utilisateur existe
-        const user = await prisma.user.findUnique({
-          where: { id: userId },
-        });
-
+        const user = await prisma.user.findUnique({ where: { id: userId } });
         if (!user) {
           res.status(404).json({ error: "User not found" });
           return;
         }
 
-        // Vérifier que l'utilisateur n'est pas déjà associé
         const existing = await prisma.userProject.findUnique({
-          where: {
-            userId_projectId: {
-              userId,
-              projectId: id,
-            },
-          },
+          where: { userId_projectId: { userId, projectId: id } },
         });
-
         if (existing) {
           res.status(409).json({ error: "User is already associated with this project" });
           return;
         }
 
-        // Ajouter l'utilisateur au projet
         const userProject = await prisma.userProject.create({
-          data: {
-            userId,
-            projectId: id,
-          },
+          data: { userId, projectId: id },
         });
 
         res.status(201).json(userProject);
@@ -339,7 +310,6 @@ router.post(
 
 // ═══════════════════════════════════════════════════════════════
 // DELETE /api/projects/:id/users/:userId
-// Supprimer un utilisateur d'un projet (Admin seulement)
 // ═══════════════════════════════════════════════════════════════
 
 router.delete(
@@ -351,12 +321,7 @@ router.delete(
         const { id, userId } = req.params;
 
         await prisma.userProject.delete({
-          where: {
-            userId_projectId: {
-              userId,
-              projectId: id,
-            },
-          },
+          where: { userId_projectId: { userId, projectId: id } },
         });
 
         res.json({ message: "User removed from project" });

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
-import {useAuthStore} from "@/stores/authStore.ts";
+import {useAuthStore} from "../stores/authStore.ts";
 
 interface ReferenceItem {
     id: string;
@@ -240,7 +240,7 @@ export default function ReferenceDataSettings({
         <div className="space-y-6">
             <div className="flex justify-between items-start">
                 <div>
-                    <h2 className="text-white text-2xl font-extrabold flex items-center gap-3">
+                    <h2 className="nav-text-primary text-2xl font-extrabold flex items-center gap-3">
                         <span className="text-3xl">{icon}</span>
                         {title}
                     </h2>
@@ -291,7 +291,7 @@ export default function ReferenceDataSettings({
                         {items.map((item) => (
                             <tr key={item.id} className="border-b border-border hover:bg-card-hover transition-colors">
                                 <td className="px-6 py-4">
-                                    <p className="text-white font-medium">{item.name}</p>
+                                    <p className="nav-text-primary font-medium">{item.name}</p>
                                 </td>
                                 {parentCategory && (
                                     <td className="px-6 py-4 text-gray-400 text-xs">
@@ -337,12 +337,12 @@ export default function ReferenceDataSettings({
                 <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
                     <div className="bg-card border border-border rounded-2xl max-w-md w-full p-6 shadow-2xl">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-white font-bold text-lg">
+                            <h3 className="nav-text-primary font-bold text-lg">
                                 {editingId ? "Edit" : "Add New"} {title}
                             </h3>
                             <button
                                 onClick={handleCloseModal}
-                                className="text-gray-500 hover:text-white transition-colors"
+                                className="text-gray-500 hover:text-gray-100 transition-colors"
                             >
                                 ✕
                             </button>

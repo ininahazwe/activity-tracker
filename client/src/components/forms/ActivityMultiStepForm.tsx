@@ -50,11 +50,12 @@ function Label({ children, required }: { children: React.ReactNode; required?: b
     );
 }
 
-function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+function Field({ label, required, error, children }: { label: string; required?: boolean; error?: string; children: React.ReactNode }) {
     return (
         <div className="mb-5">
             <Label required={required}>{label}</Label>
             {children}
+            {error && <p className="text-red-400 text-[11px] mt-1.5">{error}</p>}
         </div>
     );
 }
@@ -83,6 +84,7 @@ export default function ActivityMultiStepForm() {
     const [step, setStep] = useState(0);
     const [submitting, setSubmitting] = useState(false);
     const [loadingActivity, setLoadingActivity] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string>>({});
 
     // Fetch projects
     useEffect(() => {
@@ -171,12 +173,75 @@ export default function ActivityMultiStepForm() {
 
     const totalSteps = STEPS.length;
 
+    // ─── VALIDATION ───
+    // Returns a map of fieldName -> error message for the given step (empty = valid)
+    const validateStep = (stepIndex: number, data: ActivityFormData): Record<string, string> => {
+        const e: Record<string, string> = {};
+
+        switch (STEPS[stepIndex].id) {
+            case "identity":
+                if (!data.projectId) e.projectId = "Please select a project";
+                if (!data.activityTitle.trim()) e.activityTitle = "Activity title is required";
+                break;
+
+            case "location":
+                if (!data.locations.length) {
+                    e.locations = "At least one location is required";
+                    break;
+                }
+                data.locations.forEach((loc, i) => {
+                    if (!loc.countryId) e[`locations.${i}.countryId`] = `Location ${i + 1}: country is required`;
+                    if (!loc.dateStart) e[`locations.${i}.dateStart`] = `Location ${i + 1}: start date is required`;
+                    if (loc.dateEnd && loc.dateStart && loc.dateEnd < loc.dateStart) {
+                        e[`locations.${i}.dateEnd`] = `Location ${i + 1}: end date is before start date`;
+                    }
+                });
+                break;
+
+            case "tags":
+                if (!data.activityTypes.length) e.activityTypes = "Select at least one activity type";
+                if (!data.thematicFocus.length) e.thematicFocus = "Select at least one thematic focus";
+                if (!data.funders.length) e.funders = "Select at least one funder";
+                break;
+        }
+
+        return e;
+    };
+
     const nextStep = () => {
+        const e = validateStep(step, form);
+        if (Object.keys(e).length) {
+            setErrors(e);
+            toast.error(Object.values(e)[0]);
+            return;
+        }
+        setErrors({});
         if (step < totalSteps - 1) setStep(step + 1);
     };
 
     const prevStep = () => {
+        setErrors({});
         if (step > 0) setStep(step - 1);
+    };
+
+    // Free to go backwards; forward jumps must pass validation of every step in between
+    const goToStep = (target: number) => {
+        if (target <= step) {
+            setErrors({});
+            setStep(target);
+            return;
+        }
+        for (let i = step; i < target; i++) {
+            const e = validateStep(i, form);
+            if (Object.keys(e).length) {
+                setStep(i);
+                setErrors(e);
+                toast.error(Object.values(e)[0]);
+                return;
+            }
+        }
+        setErrors({});
+        setStep(target);
     };
 
     const isLastStep = step === totalSteps - 1;
@@ -184,20 +249,29 @@ export default function ActivityMultiStepForm() {
     // Navigation with keyboard
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
+            // Ignore while typing in a field
+            const tag = (e.target as HTMLElement)?.tagName;
+            if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
             if (e.key === "ArrowRight" && !isLastStep) nextStep();
             if (e.key === "ArrowLeft" && step > 0) prevStep();
         };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
-    }, [step, totalAttendees, totalAgeBreakdown]);
+    }, [step, form, isLastStep]);
 
     // ✅ FIXED: Removed unused 'asDraft' parameter - now it's just submit
     async function handleSubmit() {
-        if (!form.projectId || !form.activityTitle) {
-            toast.error("Project and activity title are required");
-            setStep(0);
-            return;
+        // Re-validate every step before sending
+        for (let i = 0; i < totalSteps; i++) {
+            const e = validateStep(i, form);
+            if (Object.keys(e).length) {
+                setStep(i);
+                setErrors(e);
+                toast.error(Object.values(e)[0]);
+                return;
+            }
         }
+        setErrors({});
 
         // ✅ Les données sont déjà au bon format (IDs simples, dates en YYYY-MM-DD)
         const extractIds = (items: any[]) =>
@@ -238,11 +312,11 @@ export default function ActivityMultiStepForm() {
         const activeProject = projects.find((p) => p.id === form.projectId);
         return (
             <div>
-                <Field label="Project" required>
+                <Field label="Project" required error={errors.projectId}>
                     <select
                         value={form.projectId}
                         onChange={(e) => set("projectId", e.target.value)}
-                        className="input-field text-sm"
+                        className={`input-field text-sm ${errors.projectId ? "border-red-400" : ""}`}
                     >
                         <option value="">Select a project</option>
                         {projects.map((p) => (
@@ -257,35 +331,47 @@ export default function ActivityMultiStepForm() {
                         <p className="text-gray-400 text-xs">{activeProject.description}</p>
                     </div>
                 )}
-                <Field label="Activity Title" required>
+                <Field label="Activity Title" required error={errors.activityTitle}>
                     <input
                         type="text"
                         value={form.activityTitle}
                         onChange={(e) => set("activityTitle", e.target.value)}
                         placeholder="e.g., Workshop on Digital Rights"
-                        className="input-field text-sm"
+                        className={`input-field text-sm ${errors.activityTitle ? "border-red-400" : ""}`}
                     />
                 </Field>
             </div>
         );
     };
 
-    const renderLocation = () => (
-        <LocationBlock
-            locations={form.locations}
-            onChange={(locs) => set("locations", locs)}
-            referenceData={{
-                countries: refs.countries,
-                regions: refs.regions,
-                cities: refs.cities,
-            }}
-        />
-    );
+    const renderLocation = () => {
+        const locErrors = Object.entries(errors).filter(([k]) => k.startsWith("locations"));
+        return (
+            <div>
+                {locErrors.length > 0 && (
+                    <div className="bg-red-400/10 border border-red-400/30 rounded-lg p-3 mb-4">
+                        {locErrors.map(([k, msg]) => (
+                            <p key={k} className="text-red-400 text-xs">{msg}</p>
+                        ))}
+                    </div>
+                )}
+                <LocationBlock
+                    locations={form.locations}
+                    onChange={(locs) => set("locations", locs)}
+                    referenceData={{
+                        countries: refs.countries,
+                        regions: refs.regions,
+                        cities: refs.cities,
+                    }}
+                />
+            </div>
+        );
+    };
 
     // ✅ FIXED: Using value prop and simplified onChange to work with MultiSelect
     const renderTags = () => (
         <div>
-            <Field label="Activity Types" required>
+            <Field label="Activity Types" required error={errors.activityTypes}>
                 <MultiSelect
                     options={refs.activityTypes}
                     value={form.activityTypes}
@@ -293,7 +379,7 @@ export default function ActivityMultiStepForm() {
                     placeholder="Select activity types"
                 />
             </Field>
-            <Field label="Thematic Focus" required>
+            <Field label="Thematic Focus" required error={errors.thematicFocus}>
                 <MultiSelect
                     options={refs.thematicFocus}
                     value={form.thematicFocus}
@@ -301,7 +387,7 @@ export default function ActivityMultiStepForm() {
                     placeholder="Select thematic focus"
                 />
             </Field>
-            <Field label="Funders" required>
+            <Field label="Funders" required error={errors.funders}>
                 <MultiSelect
                     options={refs.funders}
                     value={form.funders}
@@ -583,7 +669,7 @@ export default function ActivityMultiStepForm() {
                     {STEPS.map((s, i) => (
                         <button
                             key={i}
-                            onClick={() => setStep(i)}
+                            onClick={() => goToStep(i)}
                             className={`flex-1 py-3 rounded-lg text-xs font-semibold transition-all ${
                                 step === i
                                     ? "bg-accent text-primary"

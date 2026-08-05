@@ -60,12 +60,29 @@ model User {
   @@map("users")
 }
 
+// ─── PROGRAMME ───
+
+model Programme {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  projects    Project[]
+
+  @@map("programmes")
+}
+
 // ─── PROJECT ───
 
 model Project {
   id            String        @id @default(cuid())
   name          String        @unique
   slug          String        @unique
+  programmeId   String?       @map("programme_id")
   description   String?
   extraFields   Json?         @map("extra_fields")
   isActive      Boolean       @default(true) @map("is_active")
@@ -73,10 +90,12 @@ model Project {
   updatedAt     DateTime      @updatedAt @map("updated_at")
 
   // Relations
+  programme     Programme?    @relation(fields: [programmeId], references: [id], onDelete: SetNull)
   users         UserProject[]
   activities    Activity[]
   finances      Finance[]
 
+  @@index([programmeId])
   @@map("projects")
 }
 

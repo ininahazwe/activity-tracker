@@ -2,11 +2,17 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="202580ea-c0d2-4328-94c9-aa54b1e60175" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/server/src/services/gmailService.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/client/src/pages/ProgrammesSettings.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/server/src/routes/programmes.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/server/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/server/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/server/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/server/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/server/src/routes/users.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/src/routes/users.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/App.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/components/ReferenceDataSettings.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/ReferenceDataSettings.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/components/layout/AppShell.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/layout/AppShell.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/pages/Projectssettings.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/pages/Projectssettings.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/pages/SettingsPages.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/pages/SettingsPages.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/prisma/schema.prisma" beforeDir="false" afterPath="$PROJECT_DIR$/server/prisma/schema.prisma" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/src/index.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/routes/projects.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/src/routes/projects.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -27,20 +33,20 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/Dell/Documents/Dev/Tracker/server/src/services&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;ts.external.directory.path&quot;: &quot;C:\\Users\\Dell\\Documents\\Dev\\Tracker\\server\\node_modules\\typescript\\lib&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "C:/Users/Dell/Documents/Dev/Tracker/server/src/services",
+    "nodejs_package_manager_path": "npm",
+    "ts.external.directory.path": "C:\\Users\\Dell\\Documents\\Dev\\Tracker\\client\\node_modules\\typescript\\lib",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\Dell\Documents\Dev\Tracker\server\src\services" />
@@ -114,7 +120,16 @@
       <workItem from="1779806363306" duration="10899000" />
       <workItem from="1779880691785" duration="6312000" />
       <workItem from="1779972272360" duration="7061000" />
-      <workItem from="1780043844672" duration="4947000" />
+      <workItem from="1780043844672" duration="7162000" />
+      <workItem from="1780055470789" duration="133000" />
+      <workItem from="1780055965352" duration="9000" />
+      <workItem from="1780324886005" duration="60000" />
+      <workItem from="1781013957548" duration="1260000" />
+      <workItem from="1781021709051" duration="367000" />
+      <workItem from="1781087960334" duration="2350000" />
+      <workItem from="1781102930046" duration="559000" />
+      <workItem from="1781193405219" duration="2793000" />
+      <workItem from="1781196241897" duration="2636000" />
     </task>
     <servers />
   </component>
@@ -126,7 +141,7 @@
       <breakpoints>
         <line-breakpoint enabled="true" type="javascript">
           <url>file://$PROJECT_DIR$/server/src/routes/projects.ts</url>
-          <line>238</line>
+          <line>237</line>
           <option name="timeStamp" value="1" />
         </line-breakpoint>
       </breakpoints>

@@ -15,10 +15,10 @@ import {
     CountriesPage,
     RegionsPage,
     CitiesPage,
+    ProgrammesPage,
     ProjectsPage
 } from "./pages/SettingsPages";
-import AcceptInvitationPage from "@/pages/Acceptinvitationpage.tsx";
-
+import AcceptInvitationPage from "./pages/Acceptinvitationpage.tsx";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
     const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -55,10 +55,18 @@ export default function App() {
 
                                 {/* Settings Routes (Admin only) */}
                                 <Route
+                                    path="/settings/programmes"
+                                    element={
+                                        <AdminRoute>
+                                            <ProgrammesPage />
+                                        </AdminRoute>
+                                    }
+                                />
+                                <Route
                                     path="/settings/projects"
                                     element={
                                         <AdminRoute>
-                                            <ProjectsPage  />
+                                            <ProjectsPage />
                                         </AdminRoute>
                                     }
                                 />

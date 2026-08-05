@@ -15,6 +15,7 @@ const NAV_ITEMS = [
 ];
 
 const SETTINGS_ITEMS = [
+  { path: "/settings/programmes", icon: "🗂️", label: "Programmes" },
   { path: "/settings/projects", icon: "📁", label: "Projects" },
   { path: "/settings/activity-types", icon: "📋", label: "Activity Types" },
   { path: "/settings/thematic-focus", icon: "🎯", label: "Thematic Focus" },

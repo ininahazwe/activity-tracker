@@ -12,6 +12,7 @@ import dashboardRouter from "./routes/dashboard";
 import financeRouter from "./routes/finance";
 import referenceRouter from './routes/reference';
 import projectsRouter from './routes/projects';
+import programmesRouter from './routes/programmes';
 import chatRoutes from './routes/chat';
 
 import { authenticate } from "./middleware/auth";
@@ -25,7 +26,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || "http://localhost:5173",
+  origin: process.env.CORS_ORIGIN || "http://localhost:5174",
   credentials: true
 }));
 app.use(morgan("dev"));
@@ -72,8 +73,10 @@ app.get("/api/health", (_req: Request, res: Response) => {
 app.use("/api/activities", authenticate, activityRouter);
 
 // User routes
-
 app.use("/api/users", authenticate, userRouter);
+
+// Programme routes
+app.use('/api/programmes', authenticate, programmesRouter);
 
 // Project routes
 app.use('/api/projects', authenticate, projectsRouter);
@@ -111,7 +114,7 @@ app.use((req: Request, res: Response) => {
 app.listen(PORT, () => {
   console.log(`\n🚀 Server running on http://localhost:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`🔗 CORS origin: ${process.env.CORS_ORIGIN || "http://localhost:5173"}\n`);
+  console.log(`🔗 CORS origin: ${process.env.CORS_ORIGIN || "http://localhost:5174"}\n`);
 });
 
 
