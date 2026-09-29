@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { X, AlertCircle, Download } from "lucide-react";
+import { X, AlertCircle, Download, Send, CheckCircle2, XCircle } from "lucide-react";
 import ActivityChatBot from "../../components/ActivityChatBot.tsx";
+import { activityApi } from "../../utils/api";
 
 const STATUS_COLORS: Record<string, string> = {
     VALIDATED: "bg-emerald-400/10 text-emerald-400",
@@ -11,17 +12,91 @@ const STATUS_COLORS: Record<string, string> = {
     REJECTED:  "bg-red-400/10 text-red-400",
 };
 
+interface ActivityPermissions {
+    canEdit: boolean;
+    canSubmit: boolean;
+    canValidate: boolean;
+    canDelete: boolean;
+}
+
 interface ActivityDetailModalProps {
     activity: any;
     isOpen: boolean;
     onClose: () => void;
+    /** Appelé après un changement de statut, pour rafraîchir la liste */
+    onChanged?: () => void;
 }
 
-export default function ActivityDetailModal({ activity, isOpen, onClose }: ActivityDetailModalProps) {
+export default function ActivityDetailModal({ activity: activityProp, isOpen, onClose, onChanged }: ActivityDetailModalProps) {
     const navigate = useNavigate();
     const [isExporting, setIsExporting] = useState(false);
 
+    // Détail complet + actions autorisées, fournis par le serveur
+    const [detail, setDetail] = useState<any>(null);
+    const [permissions, setPermissions] = useState<ActivityPermissions | null>(null);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [rejectMode, setRejectMode] = useState(false);
+    const [rejectReason, setRejectReason] = useState("");
+
+    const activityId = activityProp?.id;
+
+    const loadDetail = async (id: string) => {
+        try {
+            const { data } = await activityApi.get(id);
+            const { permissions: perms, ...rest } = data;
+            setDetail(rest);
+            setPermissions(perms || null);
+        } catch (err) {
+            console.error("[ACTIVITY_DETAIL] Load error:", err);
+            setPermissions(null);
+        }
+    };
+
+    useEffect(() => {
+        setDetail(null);
+        setPermissions(null);
+        setRejectMode(false);
+        setRejectReason("");
+        if (isOpen && activityId) loadDetail(activityId);
+    }, [isOpen, activityId]);
+
+    const activity = detail ?? activityProp;
+
     if (!isOpen || !activity) return null;
+
+    const runAction = async (action: () => Promise<unknown>, successMessage: string) => {
+        if (actionLoading) return;
+        try {
+            setActionLoading(true);
+            await action();
+            toast.success(successMessage);
+            setRejectMode(false);
+            setRejectReason("");
+            await loadDetail(activity.id);
+            onChanged?.();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.error || "Action failed");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleSubmitForValidation = () =>
+        runAction(() => activityApi.submit(activity.id), "Activity submitted for validation");
+
+    const handleValidate = () =>
+        runAction(() => activityApi.validate(activity.id, { status: "VALIDATED" }), "Activity validated");
+
+    const handleReject = () => {
+        if (!rejectReason.trim()) {
+            toast.error("Please give a reason for the rejection");
+            return;
+        }
+        runAction(
+            () => activityApi.validate(activity.id, { status: "REJECTED", rejectionReason: rejectReason.trim() }),
+            "Activity rejected"
+        );
+    };
 
     const formatDate = (date: string | Date) =>
         new Date(date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
@@ -211,6 +286,91 @@ export default function ActivityDetailModal({ activity, isOpen, onClose }: Activ
                             )}
                         </div>
 
+                        {/* Validation workflow */}
+                        {permissions && (permissions.canSubmit || permissions.canValidate || activity.validatedBy) && (
+                            <div className="p-4 rounded-lg border border-border space-y-3">
+                                <h3 className="nav-text-primary font-semibold text-sm">Validation</h3>
+
+                                {activity.validatedBy && (activity.status === "VALIDATED" || activity.status === "REJECTED") && (
+                                    <p className="nav-text-muted text-xs">
+                                        {activity.status === "VALIDATED" ? "Validated" : "Rejected"} by{" "}
+                                        <span className="nav-text-primary font-semibold">{activity.validatedBy.name}</span>
+                                    </p>
+                                )}
+
+                                {permissions.canSubmit && (
+                                    <div className="flex items-center justify-between gap-3">
+                                        <p className="nav-text-muted text-xs">
+                                            {activity.status === "REJECTED"
+                                                ? "Correct the activity if needed, then submit it again."
+                                                : "This activity is a draft. Submit it when it is complete."}
+                                        </p>
+                                        <button
+                                            onClick={handleSubmitForValidation}
+                                            disabled={actionLoading}
+                                            className="px-4 py-2 rounded-lg bg-amber-400/10 text-amber-400 hover:bg-amber-400/20 font-semibold text-sm transition-colors disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+                                        >
+                                            <Send className="w-4 h-4" />
+                                            {activity.status === "REJECTED" ? "Resubmit" : "Submit for validation"}
+                                        </button>
+                                    </div>
+                                )}
+
+                                {permissions.canValidate && !rejectMode && (
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={handleValidate}
+                                            disabled={actionLoading}
+                                            className="flex-1 px-4 py-2 rounded-lg bg-emerald-400/10 text-emerald-400 hover:bg-emerald-400/20 font-semibold text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                        >
+                                            <CheckCircle2 className="w-4 h-4" />
+                                            Validate
+                                        </button>
+                                        <button
+                                            onClick={() => setRejectMode(true)}
+                                            disabled={actionLoading}
+                                            className="flex-1 px-4 py-2 rounded-lg bg-red-400/10 text-red-400 hover:bg-red-400/20 font-semibold text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                        >
+                                            <XCircle className="w-4 h-4" />
+                                            Reject
+                                        </button>
+                                    </div>
+                                )}
+
+                                {permissions.canValidate && rejectMode && (
+                                    <div className="space-y-2">
+                                        <label className="nav-text-muted text-xs font-semibold uppercase block">
+                                            Rejection reason <span className="text-red-400">*</span>
+                                        </label>
+                                        <textarea
+                                            value={rejectReason}
+                                            onChange={(e) => setRejectReason(e.target.value)}
+                                            rows={3}
+                                            autoFocus
+                                            placeholder="Explain what needs to be corrected"
+                                            className="input-field text-sm w-full"
+                                        />
+                                        <div className="flex gap-3">
+                                            <button
+                                                onClick={() => { setRejectMode(false); setRejectReason(""); }}
+                                                disabled={actionLoading}
+                                                className="flex-1 px-4 py-2 rounded-lg bg-card-hover nav-text-muted font-semibold text-sm transition-colors disabled:opacity-50"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                onClick={handleReject}
+                                                disabled={actionLoading || !rejectReason.trim()}
+                                                className="flex-1 px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 font-semibold text-sm transition-colors disabled:opacity-50"
+                                            >
+                                                Confirm rejection
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {/* Activity Information */}
                         <DetailSection title="Activity Information">
                             <DetailRow label="Start Date"  value={activity.activityStartDate ? formatDate(activity.activityStartDate) : "N/A"} />
@@ -275,12 +435,14 @@ export default function ActivityDetailModal({ activity, isOpen, onClose }: Activ
                             >
                                 Close
                             </button>
-                            <button
-                                onClick={() => navigate(`/activities/edit/${activity.id}`)}
-                                className="flex-1 px-4 py-2.5 rounded-lg bg-gradient-to-r from-accent to-purple-500 text-white font-semibold hover:shadow-lg hover:shadow-accent/20 transition-all"
-                            >
-                                Edit Activity
-                            </button>
+                            {permissions?.canEdit && (
+                                <button
+                                    onClick={() => navigate(`/activities/edit/${activity.id}`)}
+                                    className="flex-1 px-4 py-2.5 rounded-lg bg-gradient-to-r from-accent to-purple-500 text-white font-semibold hover:shadow-lg hover:shadow-accent/20 transition-all"
+                                >
+                                    Edit Activity
+                                </button>
+                            )}
                             <button
                                 onClick={handleExportPDF}
                                 disabled={isExporting}

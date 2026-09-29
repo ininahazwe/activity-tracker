@@ -85,6 +85,8 @@ export default function ActivityMultiStepForm() {
     const [submitting, setSubmitting] = useState(false);
     const [loadingActivity, setLoadingActivity] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
+    // Statut et droits de l'activité éditée (fournis par le serveur, hors données du formulaire)
+    const [meta, setMeta] = useState<{ status: string; rejectionReason?: string | null; canEdit: boolean; canSubmit: boolean } | null>(null);
 
     // Fetch projects
     useEffect(() => {
@@ -107,7 +109,14 @@ export default function ActivityMultiStepForm() {
         const getActivity = async () => {
             try {
                 setLoadingActivity(true);
-                const { data: activity } = await activityApi.get(id);
+                const { data } = await activityApi.get(id);
+                const { permissions, status, rejectionReason, validatedBy, validatedById, ...activity } = data;
+                setMeta({
+                    status,
+                    rejectionReason,
+                    canEdit: !!permissions?.canEdit,
+                    canSubmit: !!permissions?.canSubmit,
+                });
 
                 // Reconvertir les données imbriquées en objets {label, value} pour MultiSelect
                 // L'API retourne des objets de jointure : { id, activityId, thematicId, thematic: { id, name } }
@@ -259,8 +268,11 @@ export default function ActivityMultiStepForm() {
         return () => window.removeEventListener("keydown", onKey);
     }, [step, form, isLastStep]);
 
-    // ✅ FIXED: Removed unused 'asDraft' parameter - now it's just submit
-    async function handleSubmit() {
+    // Soumission possible : toujours à la création, sinon selon les droits renvoyés par le serveur
+    const canSubmitAfterSave = !id || !!meta?.canSubmit;
+
+    // andSubmit = true : enregistre puis envoie l'activité en validation
+    async function handleSubmit(andSubmit: boolean) {
         // Re-validate every step before sending
         for (let i = 0; i < totalSteps; i++) {
             const e = validateStep(i, form);
@@ -287,12 +299,24 @@ export default function ActivityMultiStepForm() {
 
         try {
             setSubmitting(true);
+            let savedId = id;
             if (id) {
                 await activityApi.update(id, dataToSubmit);
-                toast.success("Activity updated successfully!");
             } else {
-                await activityApi.create(dataToSubmit);
-                toast.success("Activity created successfully!");
+                const { data: created } = await activityApi.create(dataToSubmit);
+                savedId = created?.id;
+            }
+
+            if (andSubmit && savedId) {
+                try {
+                    await activityApi.submit(savedId);
+                    toast.success("Activity saved and submitted for validation");
+                } catch (submitErr: any) {
+                    // L'activité est bien enregistrée, seule la soumission a échoué
+                    toast.error(submitErr.response?.data?.error || "Activity saved, but submission failed");
+                }
+            } else {
+                toast.success(id ? "Activity updated" : "Activity saved as draft");
             }
             navigate("/activities");
         } catch (err: any) {
@@ -305,6 +329,18 @@ export default function ActivityMultiStepForm() {
 
     if (loadingActivity) {
         return <div className="text-center py-10">Loading activity...</div>;
+    }
+
+    if (id && meta && !meta.canEdit) {
+        return (
+            <div className="max-w-xl mx-auto p-6 text-center space-y-4">
+                <p className="text-gray-200 font-semibold">This activity can no longer be edited.</p>
+                <p className="text-gray-400 text-sm">Current status: {meta.status}</p>
+                <button onClick={() => navigate("/activities")} className="px-6 py-2 bg-accent text-primary rounded-lg font-semibold">
+                    Back to activities
+                </button>
+            </div>
+        );
     }
 
     // Render functions...
@@ -619,7 +655,7 @@ export default function ActivityMultiStepForm() {
             </div>
 
             <div className="text-gray-400 text-xs text-center py-4">
-                ✅ Review complete. Click Submit to save your activity.
+                ✅ Review complete. Save it as a draft, or submit it for validation by your manager.
             </div>
         </div>
     );
@@ -661,6 +697,12 @@ export default function ActivityMultiStepForm() {
                 <p className="text-gray-400 text-sm">
                     {id ? "Update activity details" : "Build a comprehensive activity record in steps"}
                 </p>
+                {meta?.status === "REJECTED" && meta.rejectionReason && (
+                    <div className="mt-4 p-4 rounded-lg bg-red-500/10 border border-red-500/20">
+                        <p className="text-red-400 text-xs font-semibold uppercase mb-1">Rejected — reason</p>
+                        <p className="text-red-300 text-sm">{meta.rejectionReason}</p>
+                    </div>
+                )}
             </div>
 
             {/* Progress */}
@@ -711,13 +753,34 @@ export default function ActivityMultiStepForm() {
                     ← Back
                 </button>
 
-                <button
-                    onClick={isLastStep ? handleSubmit : nextStep}
-                    disabled={submitting}
-                    className="px-6 py-2 bg-accent hover:bg-accent/80 disabled:opacity-50 text-primary rounded-lg font-semibold transition-all"
-                >
-                    {submitting ? "Saving..." : isLastStep ? "Submit" : "Next →"}
-                </button>
+                {isLastStep ? (
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => handleSubmit(false)}
+                            disabled={submitting}
+                            className="px-6 py-2 bg-surface hover:bg-surface-hover disabled:opacity-50 text-gray-200 rounded-lg font-semibold transition-all"
+                        >
+                            {submitting ? "Saving..." : !id || meta?.status === "DRAFT" ? "Save as draft" : "Save changes"}
+                        </button>
+                        {canSubmitAfterSave && (
+                            <button
+                                onClick={() => handleSubmit(true)}
+                                disabled={submitting}
+                                className="px-6 py-2 bg-accent hover:bg-accent/80 disabled:opacity-50 text-primary rounded-lg font-semibold transition-all"
+                            >
+                                {submitting ? "Saving..." : meta?.status === "REJECTED" ? "Save & resubmit" : "Save & submit for validation"}
+                            </button>
+                        )}
+                    </div>
+                ) : (
+                    <button
+                        onClick={nextStep}
+                        disabled={submitting}
+                        className="px-6 py-2 bg-accent hover:bg-accent/80 disabled:opacity-50 text-primary rounded-lg font-semibold transition-all"
+                    >
+                        Next →
+                    </button>
+                )}
             </div>
         </div>
     );

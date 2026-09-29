@@ -32,6 +32,27 @@ async function canEditActivity(user: AuthPayload, a: ActivityAccessRow): Promise
   return a.status !== "VALIDATED" && (await hasProjectAccess(user, a.projectId));
 }
 
+function canSubmitActivity(user: AuthPayload, a: ActivityAccessRow): boolean {
+  const isAuthor = a.createdById === user.userId;
+  return (isAuthor || user.role === "ADMIN") && (a.status === "DRAFT" || a.status === "REJECTED");
+}
+
+async function canValidateActivity(user: AuthPayload, a: ActivityAccessRow): Promise<boolean> {
+  if (user.role === "FIELD" || a.status !== "SUBMITTED") return false;
+  if (user.role !== "ADMIN" && a.createdById === user.userId) return false;
+  return hasProjectAccess(user, a.projectId);
+}
+
+// Actions autorisées, renvoyées au client pour afficher les bons boutons
+async function getPermissions(user: AuthPayload, a: ActivityAccessRow) {
+  return {
+    canEdit: await canEditActivity(user, a),
+    canSubmit: canSubmitActivity(user, a),
+    canValidate: await canValidateActivity(user, a),
+    canDelete: user.role === "ADMIN",
+  };
+}
+
 const accessSelect = { id: true, projectId: true, createdById: true, status: true } as const;
 
 // ─── GET /api/activities ───
@@ -119,6 +140,7 @@ activityRouter.get("/:id", async (req: Request, res: Response) => {
       include: {
         project: true,
         createdBy: { select: { id: true, name: true, email: true } },
+        validatedBy: { select: { id: true, name: true } },
         locations: { include: { country: true, region: true, city: true } },
         funders: { include: { funder: true } },
         activityTypes: { include: { activityType: true } },
@@ -131,7 +153,7 @@ activityRouter.get("/:id", async (req: Request, res: Response) => {
     if (!(await canViewActivity(req.user!, activity))) {
       return res.status(403).json({ error: "No access to this activity" });
     }
-    res.json(activity);
+    res.json({ ...activity, permissions: await getPermissions(req.user!, activity) });
   } catch (err) {
     console.error("[ACTIVITIES] Get error:", err);
     res.status(500).json({ error: "Failed to fetch activity" });
@@ -311,11 +333,10 @@ activityRouter.post("/:id/submit", async (req, res) => {
     const existing = await prisma.activity.findUnique({ where: { id: req.params.id }, select: accessSelect });
     if (!existing) return res.status(404).json({ error: "Activity not found" });
 
-    const isAuthor = existing.createdById === req.user!.userId;
-    if (!isAuthor && req.user!.role !== "ADMIN") {
+    if (existing.createdById !== req.user!.userId && req.user!.role !== "ADMIN") {
       return res.status(403).json({ error: "Only the author can submit this activity" });
     }
-    if (existing.status !== "DRAFT" && existing.status !== "REJECTED") {
+    if (!canSubmitActivity(req.user!, existing)) {
       return res.status(409).json({ error: `Activity cannot be submitted from status ${existing.status}` });
     }
 

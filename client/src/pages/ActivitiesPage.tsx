@@ -5,7 +5,6 @@ import { useAuthStore } from "../stores/authStore";
 import toast from "react-hot-toast";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import ActivityDetailModal from "../components/modals/ActivityDetailModal";
-import { ActivityChatBot } from '../components/ActivityChatBot';
 
 const STATUS_COLORS: Record<string, string> = {
     VALIDATED: "bg-emerald-400/10 text-emerald-400",
@@ -32,6 +31,13 @@ export default function ActivitiesPage() {
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedActivity, setSelectedActivity] = useState<any>(null);
 
+    // Incrémenté après une action dans la fiche (soumission, validation…) pour recharger la liste
+    const [refreshKey, setRefreshKey] = useState(0);
+    // Activités en attente d'action pour l'utilisateur connecté
+    const [pendingCount, setPendingCount] = useState(0);
+    const isReviewer = authUser?.role === "ADMIN" || authUser?.role === "MANAGER";
+    const pendingStatus = isReviewer ? "SUBMITTED" : "REJECTED";
+
     useEffect(() => {
         const fetchProjects = async () => {
             try {
@@ -57,19 +63,9 @@ export default function ActivitiesPage() {
                 if (dateStartFilter)       params.append("startDate", dateStartFilter);
                 if (dateEndFilter)         params.append("endDate", dateEndFilter);
 
+                // Le périmètre par rôle (projets du manager, activités de l'agent) est appliqué par le serveur
                 const res = await activityApi.list(params);
-                let activities = res.data?.data || [];
-
-                if (authUser?.role === "MANAGER") {
-                    const managedAgentIds = (res.data?.managedAgents || []).map((a: any) => a.id);
-                    activities = activities.filter((a: any) =>
-                        a.createdById === authUser.id || managedAgentIds.includes(a.createdById)
-                    );
-                } else if (authUser?.role === "FIELD") {
-                    activities = activities.filter((a: any) => a.createdById === authUser.id);
-                }
-
-                setActivities(activities);
+                setActivities(res.data?.data || []);
                 setPagination(res.data?.pagination || null);
             } catch (error) {
                 console.error("Failed to fetch activities:", error);
@@ -79,7 +75,21 @@ export default function ActivitiesPage() {
             }
         };
         fetchActivities();
-    }, [currentPage, statusFilter, searchTitle, projectFilter, dateStartFilter, dateEndFilter, authUser?.id, authUser?.role]);
+    }, [currentPage, statusFilter, searchTitle, projectFilter, dateStartFilter, dateEndFilter, authUser?.id, authUser?.role, refreshKey]);
+
+    // Compteur : à valider (managers/admins) ou à corriger (agents)
+    useEffect(() => {
+        const params = new URLSearchParams({ status: pendingStatus, limit: "1", page: "1" });
+        activityApi
+            .list(params)
+            .then((res) => setPendingCount(res.data?.pagination?.total || 0))
+            .catch(() => setPendingCount(0));
+    }, [pendingStatus, refreshKey]);
+
+    const showPending = () => {
+        setStatusFilter(pendingStatus);
+        setCurrentPage(1);
+    };
 
     const handleViewActivity = (activity: any) => {
         setSelectedActivity(activity);
@@ -117,6 +127,20 @@ export default function ActivitiesPage() {
                     + New Activity
                 </button>
             </div>
+
+            {/* À valider / à corriger */}
+            {pendingCount > 0 && statusFilter !== pendingStatus && (
+                <div className={`card p-4 flex items-center justify-between ${isReviewer ? "border-amber-400/30" : "border-red-400/30"}`}>
+                    <p className="nav-text-primary text-sm">
+                        {isReviewer
+                            ? <><span className="font-bold text-amber-400">{pendingCount}</span> {pendingCount > 1 ? "activities are" : "activity is"} awaiting validation</>
+                            : <><span className="font-bold text-red-400">{pendingCount}</span> {pendingCount > 1 ? "activities were" : "activity was"} rejected and need correction</>}
+                    </p>
+                    <button onClick={showPending} className="text-accent text-sm font-semibold hover:underline">
+                        {isReviewer ? "Review now →" : "See them →"}
+                    </button>
+                </div>
+            )}
 
             {/* Filters */}
             <div className="card p-6 space-y-4">
@@ -332,8 +356,12 @@ export default function ActivitiesPage() {
                 </div>
             )}
 
-            <ActivityDetailModal activity={selectedActivity} isOpen={modalOpen} onClose={handleCloseModal} />
-            {selectedActivity && modalOpen && <ActivityChatBot projectId={selectedActivity.projectId} />}
+            <ActivityDetailModal
+                activity={selectedActivity}
+                isOpen={modalOpen}
+                onClose={handleCloseModal}
+                onChanged={() => setRefreshKey((k) => k + 1)}
+            />
         </div>
     );
 }
