@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { PrismaClient, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { authenticate, authorize, authorizeProject, hasProjectAccess, AuthPayload } from "../middleware/auth";
+import { notifyActivitySubmitted, notifyActivityRejected } from "../services/activityNotifications";
 import { createActivitySchema, updateActivitySchema, validateActivitySchema, activityFilterSchema } from "../utils/validation";
 
 const prisma = new PrismaClient();
@@ -160,61 +161,109 @@ activityRouter.get("/:id", async (req: Request, res: Response) => {
   }
 });
 
+// ─── HELPERS D'ÉCRITURE ───
+
+const fullInclude = {
+  project: true,
+  createdBy: { select: { id: true, name: true, email: true } },
+  locations: { include: { country: true, region: true, city: true } },
+  funders: { include: { funder: true } },
+  activityTypes: { include: { activityType: true } },
+  thematicFocus: { include: { thematic: true } },
+  targetGroups: { include: { group: true } },
+} as const;
+
+// Champs texte/numériques simples, recopiés tels quels s'ils sont présents dans la requête
+const SCALAR_FIELDS = [
+  "activityTitle", "projectName",
+  "maleCount", "femaleCount", "nonBinaryCount",
+  "ageUnder25", "age25to40", "age40plus",
+  "disabilityYes", "disabilityNo",
+  "keyOutputs", "immediateOutcomes", "skillsGained", "actionsTaken",
+  "meansOfVerification", "evidenceAvailable",
+  "policiesInfluenced", "institutionalChanges", "commitmentsSecured",
+  "mediaMentions", "publicationsProduced",
+  "genderOutcomes", "inclusionChallenges", "womenLeadership",
+  "newPartnerships", "existingPartnerships",
+] as const;
+
+function pickScalars(data: Record<string, any>): Record<string, any> {
+  const out: Record<string, any> = {};
+  for (const key of SCALAR_FIELDS) {
+    if (data[key] !== undefined) out[key] = data[key];
+  }
+  return out;
+}
+
+// "2026-09-29" → Date ; chaîne vide, null ou date invalide → null
+function toDate(value?: string | null): Date | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+type LocationInput = { countryId: string; regionId?: string | null; cityId?: string | null; dateStart?: string | null; dateEnd?: string | null };
+
+function buildLocations(locations: LocationInput[]) {
+  return locations.map((loc) => ({
+    country: loc.countryId ? { connect: { id: loc.countryId } } : undefined,
+    region: loc.regionId ? { connect: { id: loc.regionId } } : undefined,
+    city: loc.cityId ? { connect: { id: loc.cityId } } : undefined,
+    dateStart: toDate(loc.dateStart),
+    dateEnd: toDate(loc.dateEnd),
+  }));
+}
+
+// Période de l'activité = du début le plus tôt à la fin la plus tardive de ses lieux
+function activityPeriod(locations: LocationInput[]) {
+  const starts = locations.map((l) => toDate(l.dateStart)).filter((d): d is Date => !!d);
+  const ends = locations.map((l) => toDate(l.dateEnd) ?? toDate(l.dateStart)).filter((d): d is Date => !!d);
+  return {
+    activityStartDate: starts.length ? new Date(Math.min(...starts.map((d) => d.getTime()))) : null,
+    activityEndDate: ends.length ? new Date(Math.max(...ends.map((d) => d.getTime()))) : null,
+  };
+}
+
 // ─── POST /api/activities ───
 activityRouter.post("/", authorizeProject("projectId", true), async (req: Request, res: Response) => {
   try {
     const data = createActivitySchema.parse(req.body);
-    const {
-      funders: funderIds = [],
-      activityTypes: activityTypeIds = [],
-      thematicFocus: thematicIds = [],
-      targetGroups: groupIds = [],
-      locations: locationData = [],
-      ...basicData
-    } = data as any;
 
     const activity = await prisma.activity.create({
       data: {
-        ...basicData,
-        createdById: req.user!.userId,
-        activityStartDate: locationData[0]?.dateStart ? new Date(locationData[0].dateStart) : null,
-        activityEndDate: locationData[0]?.dateEnd ? new Date(locationData[0].dateEnd) : null,
-        funders: { create: funderIds.map((id: string) => ({ funder: { connect: { id } } })) },
-        activityTypes: { create: activityTypeIds.map((id: string) => ({ activityType: { connect: { id } } })) },
-        thematicFocus: { create: thematicIds.map((id: string) => ({ thematic: { connect: { id } } })) },
-        targetGroups: { create: groupIds.map((id: string) => ({ group: { connect: { id } } })) },
-        locations: {
-          create: locationData.map((loc: any) => ({
-            country: loc.countryId ? { connect: { id: loc.countryId } } : undefined,
-            region: loc.regionId ? { connect: { id: loc.regionId } } : undefined,
-            city: loc.cityId ? { connect: { id: loc.cityId } } : undefined
-          }))
-        }
+        ...pickScalars(data),
+        activityTitle: data.activityTitle,
+        project: { connect: { id: data.projectId } },
+        createdBy: { connect: { id: req.user!.userId } },
+        totalAttendees: (data.maleCount || 0) + (data.femaleCount || 0) + (data.nonBinaryCount || 0),
+        ...activityPeriod(data.locations),
+        funders: { create: data.funders.map((id) => ({ funder: { connect: { id } } })) },
+        activityTypes: { create: data.activityTypes.map((id) => ({ activityType: { connect: { id } } })) },
+        thematicFocus: { create: data.thematicFocus.map((id) => ({ thematic: { connect: { id } } })) },
+        targetGroups: { create: data.targetGroups.map((id) => ({ group: { connect: { id } } })) },
+        locations: { create: buildLocations(data.locations) },
       },
-      include: {
-        project: true,
-        createdBy: { select: { id: true, name: true, email: true } },
-        locations: { include: { country: true, region: true, city: true } },
-        funders: { include: { funder: true } },
-        activityTypes: { include: { activityType: true } },
-        thematicFocus: { include: { thematic: true } },
-        targetGroups: { include: { group: true } }
-      }
+      include: fullInclude,
     });
 
     res.status(201).json(activity);
   } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ error: err.errors[0]?.message || "Invalid activity data", details: err.errors });
+    }
     console.error("[ACTIVITIES] Create error:", err);
     res.status(500).json({ error: "Failed to create activity" });
   }
 });
 
 // ─── PUT /api/activities/:id ───
+// Mise à jour partielle : seuls les champs présents dans la requête sont modifiés ;
+// une relation (lieux, bailleurs…) n'est remplacée que si elle est envoyée.
 activityRouter.put("/:id", async (req: Request, res: Response) => {
   try {
     const existing = await prisma.activity.findUnique({
       where: { id: req.params.id },
-      select: accessSelect,
+      select: { ...accessSelect, maleCount: true, femaleCount: true, nonBinaryCount: true },
     });
 
     if (!existing) return res.status(404).json({ error: "Activity not found" });
@@ -231,97 +280,36 @@ activityRouter.put("/:id", async (req: Request, res: Response) => {
       }
     }
 
-    const {
-      projectId,
-      projectName,
-      projectTitle,
-      consortium,
-      implementingPartners,
-      keyOutputs,
-      meansOfVerification,
-      evidenceAvailable,
-      inclusionMarginalised,
-      womenLeadership,
-      locations: locationData = [],
-      funders: funderIds = [],
-      activityTypes: activityTypeIds = [],
-      thematicFocus: thematicIds = [],
-      targetGroups: groupIds = [],
-      ...rest
-    } = data as any;
-
-    console.log("[PUT DEBUG] thematicIds reçus:", JSON.stringify(thematicIds));
-    console.log("[PUT DEBUG] funderIds reçus:", JSON.stringify(funderIds));
-
-    // ✅ Whitelist des champs valides du schema
-    const validData = {
-      activityTitle: rest.activityTitle,
-      maleCount: rest.maleCount,
-      femaleCount: rest.femaleCount,
-      nonBinaryCount: rest.nonBinaryCount,
-      ageUnder25: rest.ageUnder25,
-      age25to40: rest.age25to40,
-      age40plus: rest.age40plus,
-      disabilityYes: rest.disabilityYes,
-      disabilityNo: rest.disabilityNo,
-      immediateOutcomes: rest.immediateOutcomes,
-      skillsGained: rest.skillsGained,
-      actionsTaken: rest.actionsTaken,
-      policiesInfluenced: rest.policiesInfluenced,
-      institutionalChanges: rest.institutionalChanges,
-      commitmentsSecured: rest.commitmentsSecured,
-      mediaMentions: rest.mediaMentions,
-      publicationsProduced: rest.publicationsProduced,
-      genderOutcomes: rest.genderOutcomes,
-      newPartnerships: rest.newPartnerships,
-      existingPartnerships: rest.existingPartnerships,
+    const counts = {
+      male: data.maleCount ?? existing.maleCount ?? 0,
+      female: data.femaleCount ?? existing.femaleCount ?? 0,
+      nonBinary: data.nonBinaryCount ?? existing.nonBinaryCount ?? 0,
     };
+
+    const replace = <T,>(items: T[] | undefined, build: (items: T[]) => any[]) =>
+        items === undefined ? undefined : { deleteMany: {}, create: build(items) };
 
     const activity = await prisma.activity.update({
       where: { id: req.params.id },
       data: {
-        ...validData,
-        project: projectId ? { connect: { id: projectId } } : undefined,
-        activityStartDate: locationData[0]?.dateStart ? new Date(locationData[0].dateStart) : null,
-        activityEndDate: locationData[0]?.dateEnd ? new Date(locationData[0].dateEnd) : null,
-        funders: {
-          deleteMany: {},
-          create: funderIds.map((id: string) => ({ funder: { connect: { id } } }))
-        },
-        activityTypes: {
-          deleteMany: {},
-          create: activityTypeIds.map((id: string) => ({ activityType: { connect: { id } } }))
-        },
-        thematicFocus: {
-          deleteMany: {},
-          create: thematicIds.map((id: string) => ({ thematic: { connect: { id } } }))
-        },
-        targetGroups: {
-          deleteMany: {},
-          create: groupIds.map((id: string) => ({ group: { connect: { id } } }))
-        },
-        locations: {
-          deleteMany: {},
-          create: locationData.map((loc: any) => ({
-            country: loc.countryId ? { connect: { id: loc.countryId } } : undefined,
-            region: loc.regionId ? { connect: { id: loc.regionId } } : undefined,
-            city: loc.cityId ? { connect: { id: loc.cityId } } : undefined
-          }))
-        }
+        ...pickScalars(data),
+        project: data.projectId ? { connect: { id: data.projectId } } : undefined,
+        totalAttendees: counts.male + counts.female + counts.nonBinary,
+        ...(data.locations !== undefined ? activityPeriod(data.locations) : {}),
+        locations: replace(data.locations, buildLocations),
+        funders: replace(data.funders, (ids) => ids.map((id) => ({ funder: { connect: { id } } }))),
+        activityTypes: replace(data.activityTypes, (ids) => ids.map((id) => ({ activityType: { connect: { id } } }))),
+        thematicFocus: replace(data.thematicFocus, (ids) => ids.map((id) => ({ thematic: { connect: { id } } }))),
+        targetGroups: replace(data.targetGroups, (ids) => ids.map((id) => ({ group: { connect: { id } } }))),
       },
-      include: {
-        project: true,
-        createdBy: { select: { id: true, name: true, email: true } },
-        locations: { include: { country: true, region: true, city: true } },
-        funders: { include: { funder: true } },
-        activityTypes: { include: { activityType: true } },
-        thematicFocus: { include: { thematic: true } },
-        targetGroups: { include: { group: true } }
-      }
+      include: fullInclude,
     });
 
     res.json(activity);
   } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ error: err.errors[0]?.message || "Invalid activity data", details: err.errors });
+    }
     console.error("[ACTIVITIES] Update error:", err);
     res.status(500).json({ error: "Failed to update activity" });
   }
@@ -344,6 +332,8 @@ activityRouter.post("/:id/submit", async (req, res) => {
       where: { id: req.params.id },
       data: { status: "SUBMITTED", rejectionReason: null }
     });
+    // E-mail aux valideurs, sans attendre (ne bloque pas la réponse)
+    void notifyActivitySubmitted(updated.id);
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: "Failed to submit activity" });
@@ -374,6 +364,9 @@ activityRouter.post("/:id/validate", authorize("ADMIN", "MANAGER"), async (req, 
       where: { id: req.params.id },
       data: { status, validatedById: req.user!.userId, rejectionReason: status === "REJECTED" ? rejectionReason : null }
     });
+    if (status === "REJECTED") {
+      void notifyActivityRejected(updated.id, req.user!.userId, rejectionReason!.trim());
+    }
     res.json(updated);
   } catch (err) {
     if (err instanceof z.ZodError) {

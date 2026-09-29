@@ -21,7 +21,109 @@ const gmail = google.gmail({ version: 'v1', auth: oAuth2Client });
 
 console.log('✅ Email service: Google HTTP API client initialized successfully');
 
+// Échappe le texte saisi par les utilisateurs avant de l'insérer dans un e-mail HTML
+function escapeHtml(value: unknown): string {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// Envoi générique d'un e-mail HTML via l'API Gmail (objet encodé pour les accents)
+async function sendHtmlEmail(to: string, subject: string, html: string) {
+    const encodedSubject = `=?UTF-8?B?${Buffer.from(subject).toString('base64')}?=`;
+    const message = [
+        `From: "MFWA Activity Tracker" <${SENDER_EMAIL}>`,
+        `To: ${to}`,
+        `Subject: ${encodedSubject}`,
+        `MIME-Version: 1.0`,
+        `Content-Type: text/html; charset=utf-8`,
+        ``,
+        html,
+    ].join('\r\n');
+
+    const raw = Buffer.from(message)
+        .toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+
+    const response = await gmail.users.messages.send({ userId: 'me', requestBody: { raw } });
+    return { id: response.data.id };
+}
+
+function activityEmailLayout(color: string, heading: string, body: string, buttonLabel: string) {
+    const link = `${FRONTEND_URL}/activities`;
+    return `<html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+                <h2 style="color: ${color};">${heading}</h2>
+                ${body}
+                <div style="margin: 30px 0; text-align: center;">
+                    <a href="${link}" style="background-color: ${color}; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
+                        ${buttonLabel}
+                    </a>
+                </div>
+                <p style="color: #666; font-size: 12px; border-top: 1px solid #e5e7eb; padding-top: 15px;">
+                    This is an automatic message from MFWA Activity Tracker.
+                </p>
+            </div>
+        </body>
+    </html>`;
+}
+
+export interface ActivityEmailInfo {
+    activityTitle: string;
+    projectName: string;
+    authorName: string;
+}
+
 export const emailService = {
+    /**
+     * Activité soumise : prévient un manager qu'une activité attend sa validation
+     */
+    async sendActivitySubmitted(recipient: { email: string; name: string }, info: ActivityEmailInfo) {
+        const html = activityEmailLayout(
+            '#D97706',
+            'An activity is awaiting your validation',
+            `<p>Hello <strong>${escapeHtml(recipient.name)}</strong>,</p>
+             <p><strong>${escapeHtml(info.authorName)}</strong> has submitted an activity for validation:</p>
+             <p style="background: #f9fafb; padding: 12px 16px; border-radius: 6px;">
+                <strong>${escapeHtml(info.activityTitle)}</strong><br>
+                <span style="color: #6b7280;">Project: ${escapeHtml(info.projectName)}</span>
+             </p>
+             <p>Please review it and validate or reject it.</p>`,
+            'Review activities'
+        );
+        await sendHtmlEmail(recipient.email, `Activity to validate: ${info.activityTitle}`, html);
+        console.log(`✅ Submission email sent to ${recipient.email}`);
+    },
+
+    /**
+     * Activité rejetée : prévient l'auteur, avec le motif
+     */
+    async sendActivityRejected(
+        recipient: { email: string; name: string },
+        info: ActivityEmailInfo & { reviewerName: string; reason: string }
+    ) {
+        const html = activityEmailLayout(
+            '#DC2626',
+            'Your activity needs corrections',
+            `<p>Hello <strong>${escapeHtml(recipient.name)}</strong>,</p>
+             <p>Your activity <strong>${escapeHtml(info.activityTitle)}</strong> (project: ${escapeHtml(info.projectName)})
+                was rejected by <strong>${escapeHtml(info.reviewerName)}</strong>.</p>
+             <p style="background: #fee2e2; padding: 12px 16px; border-radius: 6px; color: #991b1b;">
+                <strong>Reason:</strong><br>${escapeHtml(info.reason).replace(/\n/g, '<br>')}
+             </p>
+             <p>Please correct the activity and submit it again.</p>`,
+            'Open my activities'
+        );
+        await sendHtmlEmail(recipient.email, `Activity rejected: ${info.activityTitle}`, html);
+        console.log(`✅ Rejection email sent to ${recipient.email}`);
+    },
+
     /**
      * Cas de figure 1 : Envoi de l'invitation à un nouvel utilisateur
      */

@@ -141,13 +141,22 @@ export default function ActivityMultiStepForm() {
                         countryId: loc.countryId || loc.country?.id || undefined,
                         regionId: loc.regionId || loc.region?.id || undefined,
                         cityId: loc.cityId || loc.city?.id || undefined,
-                        dateStart: loc.dateStart || activity.activityStartDate?.split('T')[0] || '',
-                        dateEnd: loc.dateEnd || activity.activityEndDate?.split('T')[0] || '',
+                        // Dates propres au lieu (ISO → YYYY-MM-DD), sinon celles de l'activité
+                        dateStart: (loc.dateStart || activity.activityStartDate || '').split('T')[0],
+                        dateEnd: (loc.dateEnd || activity.activityEndDate || '').split('T')[0],
                     }));
                 };
 
+                // Les colonnes vides reviennent à null : on les remet à "" pour les champs contrôlés
+                const withDefaults: any = { ...EMPTY_FORM };
+                for (const key of Object.keys(EMPTY_FORM)) {
+                    if (activity[key] !== null && activity[key] !== undefined) withDefaults[key] = activity[key];
+                }
+
                 setForm({
-                    ...activity,
+                    ...withDefaults,
+                    // En base, "inclusion des groupes marginalisés" est stocké dans inclusionChallenges
+                    inclusionMarginalised: activity.inclusionChallenges || "",
                     activityTypes: toOptions(activity.activityTypes || [], refs.activityTypes, 'activityType'),
                     thematicFocus: toOptions(activity.thematicFocus || [], refs.thematicFocus, 'thematic'),
                     funders: toOptions(activity.funders || [], refs.funders, 'funder'),

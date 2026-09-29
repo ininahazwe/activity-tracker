@@ -171,22 +171,25 @@ function cleanActivityData(data: any): any {
     age40plus:            parseInt(data.age40plus) || 0,
     disabilityYes:        parseInt(data.disabilityYes) || 0,
     disabilityNo:         parseInt(data.disabilityNo) || 0,
-    // Résultats (champs existants en base)
+    // Résultats
+    keyOutputs:           data.keyOutputs || "",
     immediateOutcomes:    data.immediateOutcomes || "",
     skillsGained:         data.skillsGained || "",
     actionsTaken:         data.actionsTaken || "",
     policiesInfluenced:   data.policiesInfluenced || "",
     institutionalChanges: data.institutionalChanges || "",
     commitmentsSecured:   data.commitmentsSecured || "",
+    meansOfVerification:  data.meansOfVerification || "",
+    evidenceAvailable:    data.evidenceAvailable || "",
     mediaMentions:        data.mediaMentions || "",
     publicationsProduced: data.publicationsProduced || "",
     genderOutcomes:       data.genderOutcomes || "",
     inclusionChallenges:  data.inclusionMarginalised || "",  // mapping frontend → base
+    womenLeadership:      data.womenLeadership || "",
     newPartnerships:      data.newPartnerships || "",
     existingPartnerships: data.existingPartnerships || "",
-    // ── Exclus (inexistants en base) ─────────────────────────────────────
+    // ── Exclus (aucun champ de saisie dans le formulaire) ─────────────────
     // projectTitle, consortium, implementingPartners
-    // keyOutputs, meansOfVerification, evidenceAvailable, womenLeadership
   };
   return cleaned;
 }

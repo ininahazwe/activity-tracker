@@ -158,12 +158,17 @@ model Activity {
   disabilityNo          Int?            @default(0) @map("disability_no")
 
   // ─── OUTCOMES & IMPACTS ───
+  keyOutputs            String?         @map("key_outputs") @db.Text
   immediateOutcomes     String?         @map("immediate_outcomes") @db.Text
   skillsGained          String?         @map("skills_gained") @db.Text
   actionsTaken          String?         @map("actions_taken") @db.Text
   policiesInfluenced    String?         @map("policies_influenced") @db.Text
   institutionalChanges  String?         @map("institutional_changes") @db.Text
   commitmentsSecured    String?         @map("commitments_secured") @db.Text
+
+  // ─── VERIFICATION ───
+  meansOfVerification   String?         @map("means_of_verification") @db.Text
+  evidenceAvailable     String?         @map("evidence_available") @db.Text
 
   // ─── MEDIA & PUBLICATIONS ───
   mediaMentions         String?         @map("media_mentions") @db.Text
@@ -172,7 +177,9 @@ model Activity {
 
   // ─── GENDER & INCLUSION ───
   genderOutcomes        String?         @map("gender_outcomes") @db.Text
+  // Saisi dans le formulaire sous le nom "inclusionMarginalised" (inclusion des groupes marginalisés)
   inclusionChallenges   String?         @map("inclusion_challenges") @db.Text
+  womenLeadership       String?         @map("women_leadership") @db.Text
 
   // ─── PARTNERSHIPS ───
   existingPartnerships  String?         @map("existing_partnerships") @db.Text
@@ -203,6 +210,8 @@ model ActivityLocation {
   countryId   String?  @map("country_id")
   regionId    String?  @map("region_id")
   cityId      String?  @map("city_id")
+  dateStart   DateTime? @map("date_start")
+  dateEnd     DateTime? @map("date_end")
 
   activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
   country     ReferenceData? @relation("ActivityLocationCountry", fields: [countryId], references: [id])

@@ -98,6 +98,15 @@ export default function ActivityDetailModal({ activity: activityProp, isOpen, on
         );
     };
 
+    // Échappe le texte saisi par les utilisateurs avant de l'injecter dans le HTML du PDF
+    const esc = (value: unknown) =>
+        String(value ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+
     const formatDate = (date: string | Date) =>
         new Date(date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
@@ -142,26 +151,26 @@ export default function ActivityDetailModal({ activity: activityProp, isOpen, on
                     <style>* { background: #ffffff !important; color: #1f2937 !important; } h2 { margin-top: 20px; page-break-after: avoid; }</style>
                     <div style="height: 30px;"></div>
                     <div style="border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px;">
-                        <h1 style="margin: 0 0 10px 0; font-size: 28px; color: #1f2937; word-wrap: break-word;">${activity.activityTitle}</h1>
-                        <p style="margin: 0; font-size: 14px; color: #6b7280;">${activity.project?.name || "N/A"}</p>
+                        <h1 style="margin: 0 0 10px 0; font-size: 28px; color: #1f2937; word-wrap: break-word;">${esc(activity.activityTitle)}</h1>
+                        <p style="margin: 0; font-size: 14px; color: #6b7280;">${esc(activity.project?.name || "N/A")}</p>
                     </div>
                     <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
                         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px;">
                             <div><p style="margin: 0 0 5px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Status</p><p style="margin: 0; font-size: 14px; font-weight: bold;">${activity.status}</p></div>
-                            <div><p style="margin: 0 0 5px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Created By</p><p style="margin: 0; font-size: 14px;">${activity.createdBy?.name || "N/A"}</p></div>
+                            <div><p style="margin: 0 0 5px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Created By</p><p style="margin: 0; font-size: 14px;">${esc(activity.createdBy?.name || "N/A")}</p></div>
                             <div><p style="margin: 0 0 5px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Created Date</p><p style="margin: 0; font-size: 14px;">${formatDate(activity.createdAt)}</p></div>
                         </div>
                         <div><p style="margin: 0 0 5px 0; font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: bold;">Created Time</p><p style="margin: 0; font-size: 14px;">${formatTime(activity.createdAt)}</p></div>
                     </div>
-                    ${activity.rejectionReason ? `<div style="background: #fee2e2; border: 1px solid #fecaca; padding: 15px; border-radius: 8px; margin-bottom: 30px;"><p style="margin: 0 0 8px 0; font-size: 12px; color: #dc2626; font-weight: bold;">⚠ Rejection Reason</p><p style="margin: 0; font-size: 13px; color: #991b1b;">${activity.rejectionReason}</p></div>` : ""}
+                    ${activity.rejectionReason ? `<div style="background: #fee2e2; border: 1px solid #fecaca; padding: 15px; border-radius: 8px; margin-bottom: 30px;"><p style="margin: 0 0 8px 0; font-size: 12px; color: #dc2626; font-weight: bold;">⚠ Rejection Reason</p><p style="margin: 0; font-size: 13px; color: #991b1b;">${esc(activity.rejectionReason)}</p></div>` : ""}
                     <div style="margin-bottom: 30px;">
                         <h2 style="margin: 0 0 15px 0; font-size: 18px; border-bottom: 1px solid #2563eb; padding-bottom: 10px;">Activity Information</h2>
                         <div style="background: #f3f4f6; padding: 20px; border-radius: 8px;">
-                            <p style="margin: 0 0 10px 0;"><span style="font-weight: bold;">Activity Title:</span> ${activity.activityTitle || "N/A"}</p>
-                            <p style="margin: 0 0 10px 0;"><span style="font-weight: bold;">Project Name:</span> ${activity.project?.name || activity.projectName || "N/A"}</p>
+                            <p style="margin: 0 0 10px 0;"><span style="font-weight: bold;">Activity Title:</span> ${esc(activity.activityTitle || "N/A")}</p>
+                            <p style="margin: 0 0 10px 0;"><span style="font-weight: bold;">Project Name:</span> ${esc(activity.project?.name || activity.projectName || "N/A")}</p>
                             <p style="margin: 0 0 10px 0;"><span style="font-weight: bold;">Start Date:</span> ${activity.activityStartDate ? formatDate(activity.activityStartDate) : "N/A"}</p>
                             <p style="margin: 0 0 10px 0;"><span style="font-weight: bold;">End Date:</span> ${activity.activityEndDate ? formatDate(activity.activityEndDate) : "N/A"}</p>
-                            <p style="margin: 0;"><span style="font-weight: bold;">Location(s):</span> ${formatLocationsList()}</p>
+                            <p style="margin: 0;"><span style="font-weight: bold;">Location(s):</span> ${esc(formatLocationsList())}</p>
                         </div>
                     </div>
                     <div style="margin-bottom: 30px;">
@@ -398,6 +407,14 @@ export default function ActivityDetailModal({ activity: activityProp, isOpen, on
                             </DetailSection>
                         )}
 
+                        {/* Verification */}
+                        {(activity.meansOfVerification || activity.evidenceAvailable) && (
+                            <DetailSection title="Verification">
+                                {activity.meansOfVerification && <DetailField label="Means of Verification" value={activity.meansOfVerification} />}
+                                {activity.evidenceAvailable   && <DetailField label="Evidence Available"    value={activity.evidenceAvailable} />}
+                            </DetailSection>
+                        )}
+
                         {/* Impact & Policy */}
                         {(activity.policiesInfluenced || activity.institutionalChanges || activity.commitmentsSecured) && (
                             <DetailSection title="Impact & Policy">
@@ -416,10 +433,11 @@ export default function ActivityDetailModal({ activity: activityProp, isOpen, on
                         )}
 
                         {/* Inclusion & Partnerships */}
-                        {(activity.genderOutcomes || activity.inclusionMarginalised || activity.newPartnerships || activity.existingPartnerships) && (
+                        {(activity.genderOutcomes || activity.inclusionChallenges || activity.womenLeadership || activity.newPartnerships || activity.existingPartnerships) && (
                             <DetailSection title="Inclusion & Partnerships">
                                 {activity.genderOutcomes        && <DetailField label="Gender Outcomes"                 value={activity.genderOutcomes} />}
-                                {activity.inclusionMarginalised && <DetailField label="Inclusion of Marginalised Groups" value={activity.inclusionMarginalised} />}
+                                {activity.inclusionChallenges   && <DetailField label="Inclusion of Marginalised Groups" value={activity.inclusionChallenges} />}
+                                {activity.womenLeadership       && <DetailField label="Women's Leadership"               value={activity.womenLeadership} />}
                                 {activity.newPartnerships       && <DetailField label="New Partnerships"                 value={activity.newPartnerships} />}
                                 {activity.existingPartnerships  && <DetailField label="Existing Partnerships"            value={activity.existingPartnerships} />}
                             </DetailSection>

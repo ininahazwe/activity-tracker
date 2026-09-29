@@ -1,3 +1,5 @@
+// Charge .env AVANT les autres imports : certains services lisent process.env au chargement
+import "dotenv/config";
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -41,7 +43,8 @@ app.set("trust proxy", 1);
 // Limite générale, volontairement large (les bureaux partagent souvent une même IP)
 const globalLimiter = rateLimit({
   windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: Number(process.env.RATE_LIMIT_MAX) || 1000,
+  // Variable dédiée : l'ancienne RATE_LIMIT_MAX (100) est trop basse pour une application monopage
+  max: Number(process.env.RATE_LIMIT_GLOBAL_MAX) || 1000,
   standardHeaders: true,
   legacyHeaders: false,
 });

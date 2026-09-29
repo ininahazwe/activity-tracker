@@ -29,7 +29,10 @@ const locationSchema = z.object({
   // Permet une chaîne vide ou null, puis transforme en ce que Prisma attend
   dateStart: z.string().or(z.null()).optional(),
   dateEnd: z.string().or(z.null()).optional(),
-});
+}).refine(
+  (loc) => !loc.dateStart || !loc.dateEnd || loc.dateEnd >= loc.dateStart,
+  { message: "End date cannot be before start date", path: ["dateEnd"] }
+);
 
 // ─── ACTIVITY ───
 export const createActivitySchema = z.object({
@@ -54,7 +57,7 @@ export const createActivitySchema = z.object({
   disabilityYes: z.number().int().min(0).optional().default(0),
   disabilityNo: z.number().int().min(0).optional().default(0),
 
-  // ❌ Supprimés : keyOutputs, meansOfVerification, evidenceAvailable (inexistants en base)
+  keyOutputs: z.string().optional().default(""),
   immediateOutcomes: z.string().optional().default(""),
   skillsGained: z.string().optional().default(""),
   actionsTaken: z.string().optional().default(""),
@@ -63,12 +66,15 @@ export const createActivitySchema = z.object({
   institutionalChanges: z.string().optional().default(""),
   commitmentsSecured: z.string().optional().default(""),
 
+  meansOfVerification: z.string().optional().default(""),
+  evidenceAvailable: z.string().optional().default(""),
+
   mediaMentions: z.string().optional().default(""),
   publicationsProduced: z.string().optional().default(""),
 
   genderOutcomes: z.string().optional().default(""),
-  inclusionChallenges: z.string().optional().default(""),  // ✅ nom correct en base
-  // ❌ Supprimé : womenLeadership (inexistant en base)
+  inclusionChallenges: z.string().optional().default(""),  // "inclusionMarginalised" côté formulaire
+  womenLeadership: z.string().optional().default(""),
   newPartnerships: z.string().optional().default(""),
   existingPartnerships: z.string().optional().default(""),
 });
