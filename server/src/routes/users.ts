@@ -8,6 +8,12 @@ import gmailService from "../services/gmailService";
 const router = Router();
 const prisma = new PrismaClient();
 
+// Le JWT ne contient pas le nom : on le relit pour l'e-mail d'invitation
+async function getInviterName(userId: string): Promise<string> {
+    const inviter = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
+    return inviter?.name || 'the Administrator';
+}
+
 // ─── GET /api/users ───
 // Liste des utilisateurs (ADMIN et MANAGER)
 
@@ -21,7 +27,7 @@ router.get('/', authenticate, authorize('ADMIN', 'MANAGER'), async (req, res) =>
         // MANAGER ne voit que ses FIELD agents
         const whereClause = requester.role === 'ADMIN'
             ? {}
-            : { managedById: requester.id };
+            : { managedById: requester.userId };
 
         const users = await prisma.user.findMany({
             where: whereClause,
@@ -86,7 +92,7 @@ router.post('/invite', authenticate, authorize('ADMIN', 'MANAGER'), async (req, 
         invitationExpires.setDate(invitationExpires.getDate() + 7);
 
         const managedById = (requester.role === 'MANAGER' && role === 'FIELD')
-            ? requester.id
+            ? requester.userId
             : null;
 
         // Créer l'utilisateur avec statut INVITED
@@ -118,7 +124,7 @@ router.post('/invite', authenticate, authorize('ADMIN', 'MANAGER'), async (req, 
                 recipientName: name,
                 invitationToken,
                 role: role as 'ADMIN' | 'MANAGER' | 'FIELD',
-                invitedBy: requester.name || 'the Administrator'
+                invitedBy: await getInviterName(requester.userId)
             });
             console.log(`✅ Email d'invitation envoyé à ${email}`);
         } catch (emailError) {
@@ -211,9 +217,9 @@ router.put('/:id', authenticate, authorize('ADMIN', 'MANAGER'), async (req, res)
         }
 
         // ─── RESTRICTION: MANAGER ne peut éditer que FIELD ───
-        if (requester.role === 'MANAGER' && userToUpdate.role !== 'FIELD') {
+        if (requester.role === 'MANAGER' && (userToUpdate.role !== 'FIELD' || userToUpdate.managedById !== requester.userId)) {
             return res.status(403).json({
-                error: 'Managers can only edit Field Agents'
+                error: 'Managers can only edit their own Field Agents'
             });
         }
 
@@ -234,8 +240,8 @@ router.put('/:id', authenticate, authorize('ADMIN', 'MANAGER'), async (req, res)
             return res.status(400).json({ error: 'Invalid status' });
         }
 
-        // Ne pas permettre la désactivation du dernier admin
-        if (status === 'INACTIVE') {
+        // Ne pas permettre la désactivation ni la rétrogradation du dernier admin
+        if (status === 'INACTIVE' || (role && role !== 'ADMIN')) {
             if (userToUpdate.role === 'ADMIN') {
                 const activeAdmins = await prisma.user.count({
                     where: {
@@ -244,7 +250,7 @@ router.put('/:id', authenticate, authorize('ADMIN', 'MANAGER'), async (req, res)
                     },
                 });
                 if (activeAdmins <= 1) {
-                    return res.status(400).json({ error: 'Cannot deactivate the last admin user' });
+                    return res.status(400).json({ error: 'Cannot deactivate or demote the last admin user' });
                 }
             }
         }
@@ -292,9 +298,9 @@ router.delete('/:id', authenticate, authorize('ADMIN', 'MANAGER'), async (req, r
         }
 
         // ─── RESTRICTION: MANAGER ne peut supprimer que FIELD ───
-        if (requester.role === 'MANAGER' && user.role !== 'FIELD') {
+        if (requester.role === 'MANAGER' && (user.role !== 'FIELD' || user.managedById !== requester.userId)) {
             return res.status(403).json({
-                error: 'Managers can only delete Field Agents'
+                error: 'Managers can only delete their own Field Agents'
             });
         }
 
@@ -335,9 +341,9 @@ router.post('/:id/resend-invitation', authenticate, authorize('ADMIN', 'MANAGER'
         }
 
         // ─── RESTRICTION: MANAGER ne peut renvoyer invitation que pour FIELD ───
-        if (requester.role === 'MANAGER' && user.role !== 'FIELD') {
+        if (requester.role === 'MANAGER' && (user.role !== 'FIELD' || user.managedById !== requester.userId)) {
             return res.status(403).json({
-                error: 'Managers can only resend invitations to Field Agents'
+                error: 'Managers can only resend invitations to their own Field Agents'
             });
         }
 
@@ -366,7 +372,7 @@ router.post('/:id/resend-invitation', authenticate, authorize('ADMIN', 'MANAGER'
                 recipientName: user.name,
                 invitationToken,
                 role: user.role,
-                invitedBy: requester.name || 'the Administrator'
+                invitedBy: await getInviterName(requester.userId)
             });
             console.log(`✅ Email de renvoi envoyé à ${user.email}`);
         } catch (emailError) {

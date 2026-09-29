@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import dotenv from "dotenv";
+import rateLimit from "express-rate-limit";
 
 // ─── ROUTES IMPORTS ───
 import authRouter from "./routes/auth";
@@ -33,18 +34,44 @@ app.use(morgan("dev"));
 app.use(express.json({ limit: "10mb" }));
 
 // ─── RATE LIMITING ───
+// L'API tourne derrière le proxy Apache de cPanel : on fait confiance au premier proxy
+// pour que l'IP réelle du client soit utilisée.
+app.set("trust proxy", 1);
 
-/*const limiter = rateLimit({
+// Limite générale, volontairement large (les bureaux partagent souvent une même IP)
+const globalLimiter = rateLimit({
   windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: Number(process.env.RATE_LIMIT_MAX) || 100,
+  max: Number(process.env.RATE_LIMIT_MAX) || 1000,
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-app.use("/api/", limiter);*/
+// Anti force brute sur la connexion et l'activation de compte (seuls les échecs comptent)
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many attempts, please try again later" },
+});
 
-// ─── AI CHAT ───
-app.use("/api", chatRoutes);
+// Chat IA : limité par utilisateur pour maîtriser le coût des appels
+const chatLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 30,
+  keyGenerator: (req) => req.user?.userId || req.ip || "anonymous",
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many chat requests, please wait a few minutes" },
+});
+
+app.use("/api/", globalLimiter);
+app.use("/api/auth/login", loginLimiter);
+app.use("/api/users/accept-invitation", loginLimiter);
+
+// ─── AI CHAT (authentification obligatoire) ───
+app.use("/api/chat", authenticate, chatLimiter, chatRoutes);
 
 // ─── ROUTES ───
 

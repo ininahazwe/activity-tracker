@@ -1,8 +1,7 @@
 import { Router, Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import jwt, { Secret } from "jsonwebtoken";
-import { authenticate, AuthPayload } from "../middleware/auth";
+import { authenticate, AuthPayload, signToken, verifyToken, loadActiveUser } from "../middleware/auth";
 
 const prisma = new PrismaClient();
 export const authRouter = Router();
@@ -12,7 +11,7 @@ authRouter.post("/login", async (req: Request, res: Response): Promise<void> => 
     try {
         console.log("[AUTH/LOGIN] Demande reçue");
         const { email, password } = req.body;
-        console.log(`[AUTH/LOGIN] Email: ${email}, Password length: ${password?.length || 0}`);
+        console.log(`[AUTH/LOGIN] Email: ${email}`);
 
         if (!email || !password) {
             console.log("[AUTH/LOGIN] Email ou password manquant");
@@ -55,23 +54,8 @@ authRouter.post("/login", async (req: Request, res: Response): Promise<void> => 
             role: user.role as any,
         };
 
-        console.log("[AUTH/LOGIN] Création JWT...");
-        const jwtSecret = process.env.JWT_SECRET as Secret;
-        console.log(`[AUTH/LOGIN] JWT_SECRET présent: ${jwtSecret ? "OUI" : "NON"}`);
-
-        if (!jwtSecret) {
-            console.error("[AUTH/LOGIN] JWT_SECRET est undefined!");
-            res.status(500).json({ error: "Internal server error" });
-            return;
-        }
-
-        const token = jwt.sign(payload, jwtSecret, {
-            expiresIn: process.env.JWT_EXPIRES_IN || "7d",
-        } as jwt.SignOptions);
-
-        const refreshToken = jwt.sign(payload, jwtSecret, {
-            expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "30d",
-        } as jwt.SignOptions);
+        const token = signToken(payload, "access");
+        const refreshToken = signToken(payload, "refresh");
 
         console.log(`[AUTH/LOGIN] ✅ Login réussi pour ${email}`);
 
@@ -93,7 +77,7 @@ authRouter.post("/login", async (req: Request, res: Response): Promise<void> => 
         });
     } catch (error) {
         console.error("[AUTH/LOGIN] ❌ Erreur:", error);
-        res.status(500).json({ error: "Failed to login", details: String(error) });
+        res.status(500).json({ error: "Failed to login" });
     }
 });
 
@@ -107,20 +91,16 @@ authRouter.post("/refresh", async (req: Request, res: Response): Promise<void> =
             return;
         }
 
-        const jwtSecret = process.env.JWT_SECRET as Secret;
-        if (!jwtSecret) {
-            console.error("JWT_SECRET is not defined");
-            res.status(500).json({ error: "Internal server error" });
+        const payload = verifyToken(refreshToken, "refresh");
+
+        // Le compte doit toujours être actif ; le rôle est relu en base
+        const user = await loadActiveUser(payload.userId);
+        if (!user) {
+            res.status(401).json({ error: "Account inactive or not found" });
             return;
         }
 
-        const payload = jwt.verify(refreshToken, jwtSecret) as AuthPayload;
-
-        const newToken = jwt.sign(
-            { userId: payload.userId, email: payload.email, role: payload.role },
-            jwtSecret,
-            { expiresIn: process.env.JWT_EXPIRES_IN || "7d" } as jwt.SignOptions
-        );
+        const newToken = signToken(user, "access");
 
         res.json({ token: newToken });
     } catch (error) {

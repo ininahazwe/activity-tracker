@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, MessageCircle, X, Loader, Minimize2, Maximize2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { api } from '../utils/api';
 
 interface Message {
     role: 'user' | 'ai';
@@ -53,24 +54,12 @@ export function ActivityChatBot({ projectId, activityId, onClose, embedded = fal
         setLoading(true);
 
         try {
-            const response = await fetch('/api/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    message: input,
-                    projectId,
-                    activityId,  // ✅ Passer l'ID de l'activité si présent
-                }),
+            // Passe par l'instance axios : le jeton d'authentification est ajouté automatiquement
+            const { data } = await api.post('/chat', {
+                message: input,
+                projectId,
+                activityId,  // ✅ Passer l'ID de l'activité si présent
             });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Erreur lors du chat');
-            }
-
-            const data = await response.json();
 
             // Ajouter la réponse IA
             const aiMessage: Message = {
@@ -90,7 +79,8 @@ export function ActivityChatBot({ projectId, activityId, onClose, embedded = fal
             }
         } catch (error) {
             console.error('Chat error:', error);
-            toast.error((error as Error).message || 'Erreur serveur');
+            const apiError = (error as any)?.response?.data?.error;
+            toast.error(apiError || (error as Error).message || 'Erreur serveur');
 
             // Supprimer le message utilisateur en cas d'erreur
             setMessages((prev) => prev.slice(0, -1));

@@ -21,9 +21,8 @@ async function getDashboardWhere(req: Request): Promise<Prisma.ActivityWhereInpu
             select: { projectId: true },
         });
         const projectIds = userProjects.map((up) => up.projectId);
-        if (projectIds.length > 0) {
-            conditions.push({ projectId: { in: projectIds } });
-        }
+        // Même sans projet, on filtre : un manager sans projet ne voit aucune activité
+        conditions.push({ projectId: { in: projectIds } });
     }
 
     // 2. Filtres de dates (Correction : utilisation de activityStartDate ou createdAt)
@@ -119,7 +118,7 @@ router.get("/stats", authenticate, async (req: Request, res: Response): Promise<
         res.json(result);
     } catch (error) {
         console.error("[DASHBOARD/STATS ERROR]", error);
-        res.status(500).json({ error: "Failed to fetch stats", details: error instanceof Error ? error.message : String(error) });
+        res.status(500).json({ error: "Failed to fetch stats" });
     }
 });
 
@@ -143,7 +142,7 @@ router.get("/activities-by-status", authenticate, async (req: Request, res: Resp
         res.json(result);
     } catch (error) {
         console.error("[DASHBOARD/STATUS ERROR]", error);
-        res.status(500).json({ error: "Failed to fetch status data", details: error instanceof Error ? error.message : String(error) });
+        res.status(500).json({ error: "Failed to fetch status data" });
     }
 });
 
@@ -167,7 +166,7 @@ router.get("/participants-by-gender", authenticate, async (req: Request, res: Re
         res.json(result);
     } catch (error) {
         console.error("[DASHBOARD/GENDER ERROR]", error);
-        res.status(500).json({ error: "Failed to fetch gender data", details: error instanceof Error ? error.message : String(error) });
+        res.status(500).json({ error: "Failed to fetch gender data" });
     }
 });
 
@@ -196,7 +195,7 @@ router.get("/activities-trend", authenticate, async (req: Request, res: Response
         res.json(result);
     } catch (error) {
         console.error("[DASHBOARD/TREND ERROR]", error);
-        res.status(500).json({ error: "Failed to fetch trend data", details: error instanceof Error ? error.message : String(error) });
+        res.status(500).json({ error: "Failed to fetch trend data" });
     }
 });
 

@@ -1,13 +1,38 @@
 import { Router, Request, Response } from "express";
 import { PrismaClient, Prisma } from "@prisma/client";
 import { z } from "zod";
-import { authenticate, authorize, authorizeProject } from "../middleware/auth";
+import { authenticate, authorize, authorizeProject, hasProjectAccess, AuthPayload } from "../middleware/auth";
 import { createActivitySchema, updateActivitySchema, validateActivitySchema, activityFilterSchema } from "../utils/validation";
 
 const prisma = new PrismaClient();
 export const activityRouter = Router();
 
 activityRouter.use(authenticate);
+
+// ─── RÈGLES D'ACCÈS ───
+// Lecture   : ADMIN tout ; MANAGER les activités de ses projets ; FIELD ses propres activités
+// Édition   : ADMIN tout ; MANAGER ses projets sauf activité VALIDATED ;
+//             FIELD ses propres activités en DRAFT ou REJECTED
+// Soumission: l'auteur (ou un ADMIN), depuis DRAFT ou REJECTED
+// Validation: ADMIN, ou MANAGER du projet ; activité SUBMITTED ; un manager ne valide pas ses propres activités
+
+type ActivityAccessRow = { id: string; projectId: string; createdById: string; status: string };
+
+async function canViewActivity(user: AuthPayload, a: ActivityAccessRow): Promise<boolean> {
+  if (user.role === "ADMIN") return true;
+  if (user.role === "FIELD") return a.createdById === user.userId;
+  return hasProjectAccess(user, a.projectId);
+}
+
+async function canEditActivity(user: AuthPayload, a: ActivityAccessRow): Promise<boolean> {
+  if (user.role === "ADMIN") return true;
+  if (user.role === "FIELD") {
+    return a.createdById === user.userId && (a.status === "DRAFT" || a.status === "REJECTED");
+  }
+  return a.status !== "VALIDATED" && (await hasProjectAccess(user, a.projectId));
+}
+
+const accessSelect = { id: true, projectId: true, createdById: true, status: true } as const;
 
 // ─── GET /api/activities ───
 activityRouter.get("/", async (req: Request, res: Response) => {
@@ -82,7 +107,7 @@ activityRouter.get("/", async (req: Request, res: Response) => {
       console.error("[ACTIVITIES] Validation error details:", err.errors);
       return res.status(400).json({ error: "Invalid filters", details: err.errors });
     }
-    res.status(500).json({ error: "Failed to fetch activities", details: String(err) });
+    res.status(500).json({ error: "Failed to fetch activities" });
   }
 });
 
@@ -103,6 +128,9 @@ activityRouter.get("/:id", async (req: Request, res: Response) => {
     });
 
     if (!activity) return res.status(404).json({ error: "Activity not found" });
+    if (!(await canViewActivity(req.user!, activity))) {
+      return res.status(403).json({ error: "No access to this activity" });
+    }
     res.json(activity);
   } catch (err) {
     console.error("[ACTIVITIES] Get error:", err);
@@ -111,7 +139,7 @@ activityRouter.get("/:id", async (req: Request, res: Response) => {
 });
 
 // ─── POST /api/activities ───
-activityRouter.post("/", authorizeProject(), async (req: Request, res: Response) => {
+activityRouter.post("/", authorizeProject("projectId", true), async (req: Request, res: Response) => {
   try {
     const data = createActivitySchema.parse(req.body);
     const {
@@ -163,12 +191,23 @@ activityRouter.post("/", authorizeProject(), async (req: Request, res: Response)
 activityRouter.put("/:id", async (req: Request, res: Response) => {
   try {
     const existing = await prisma.activity.findUnique({
-      where: { id: req.params.id }
+      where: { id: req.params.id },
+      select: accessSelect,
     });
 
     if (!existing) return res.status(404).json({ error: "Activity not found" });
+    if (!(await canEditActivity(req.user!, existing))) {
+      return res.status(403).json({ error: "You cannot edit this activity" });
+    }
 
     const data = updateActivitySchema.parse(req.body);
+
+    // Changement de projet : il faut aussi avoir accès au projet cible
+    if (data.projectId && data.projectId !== existing.projectId) {
+      if (!(await hasProjectAccess(req.user!, data.projectId))) {
+        return res.status(403).json({ error: "No access to the target project" });
+      }
+    }
 
     const {
       projectId,
@@ -269,9 +308,20 @@ activityRouter.put("/:id", async (req: Request, res: Response) => {
 // ─── STATUS & DELETE ROUTES ───
 activityRouter.post("/:id/submit", async (req, res) => {
   try {
+    const existing = await prisma.activity.findUnique({ where: { id: req.params.id }, select: accessSelect });
+    if (!existing) return res.status(404).json({ error: "Activity not found" });
+
+    const isAuthor = existing.createdById === req.user!.userId;
+    if (!isAuthor && req.user!.role !== "ADMIN") {
+      return res.status(403).json({ error: "Only the author can submit this activity" });
+    }
+    if (existing.status !== "DRAFT" && existing.status !== "REJECTED") {
+      return res.status(409).json({ error: `Activity cannot be submitted from status ${existing.status}` });
+    }
+
     const updated = await prisma.activity.update({
       where: { id: req.params.id },
-      data: { status: "SUBMITTED" }
+      data: { status: "SUBMITTED", rejectionReason: null }
     });
     res.json(updated);
   } catch (err) {
@@ -282,12 +332,33 @@ activityRouter.post("/:id/submit", async (req, res) => {
 activityRouter.post("/:id/validate", authorize("ADMIN", "MANAGER"), async (req, res) => {
   try {
     const { status, rejectionReason } = validateActivitySchema.parse(req.body);
+
+    const existing = await prisma.activity.findUnique({ where: { id: req.params.id }, select: accessSelect });
+    if (!existing) return res.status(404).json({ error: "Activity not found" });
+
+    if (!(await hasProjectAccess(req.user!, existing.projectId))) {
+      return res.status(403).json({ error: "No access to this project" });
+    }
+    if (req.user!.role !== "ADMIN" && existing.createdById === req.user!.userId) {
+      return res.status(403).json({ error: "You cannot validate your own activity" });
+    }
+    if (existing.status !== "SUBMITTED") {
+      return res.status(409).json({ error: "Only submitted activities can be validated or rejected" });
+    }
+    if (status === "REJECTED" && !rejectionReason?.trim()) {
+      return res.status(400).json({ error: "A rejection reason is required" });
+    }
+
     const updated = await prisma.activity.update({
       where: { id: req.params.id },
       data: { status, validatedById: req.user!.userId, rejectionReason: status === "REJECTED" ? rejectionReason : null }
     });
     res.json(updated);
   } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ error: "Invalid validation payload", details: err.errors });
+    }
+    console.error("[ACTIVITIES] Validate error:", err);
     res.status(500).json({ error: "Failed to validate activity" });
   }
 });

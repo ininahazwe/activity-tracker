@@ -1,17 +1,18 @@
 // server/src/routes/chat.ts
-import express, { Router, Request, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { chatWithActivities, formatActivitiesContext, testAIProviders } from '../services/ai-providers';
+import { authorize, hasProjectAccess } from '../middleware/auth';
 
 const router = Router();
 const prisma = new PrismaClient();
 
 /**
- * POST /api/chat
+ * POST /api/chat  (monté derrière authenticate dans index.ts)
  * Endpoint de chat pour interroger les activités avec Intelligence Artificial
  * Groq en priorité, fallback Claude
  */
-router.post('/chat', async (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response) => {
     try {
         const { message, projectId, activityId } = req.body;
 
@@ -32,10 +33,22 @@ router.post('/chat', async (req: Request, res: Response) => {
             `[CHAT] Nouvelle requête - projet: ${projectId}, message: "${message.substring(0, 50)}..."`
         );
 
-        // Récupérer les activités du projet
+        if (activityId !== undefined && typeof activityId !== 'string') {
+            return res.status(400).json({ error: 'activityId invalide' });
+        }
+
+        // ─── Contrôle d'accès : même périmètre que la liste des activités ───
+        const user = req.user!;
+        if (!(await hasProjectAccess(user, projectId))) {
+            return res.status(403).json({ error: 'No access to this project' });
+        }
+
+        // Récupérer les activités du projet (un agent FIELD ne voit que les siennes)
         const activities = await prisma.activity.findMany({
-            where: { projectId,
+            where: {
+                projectId,
                 id: activityId ? activityId : undefined,
+                createdById: user.role === 'FIELD' ? user.userId : undefined,
             },
             take: 50, // Limiter pour ne pas surcharger le contexte
             include: {
@@ -80,7 +93,6 @@ router.post('/chat', async (req: Request, res: Response) => {
         return res.status(500).json({
             success: false,
             error: 'Erreur lors du traitement de la question',
-            details: errorMsg,
         });
     }
 });
@@ -90,7 +102,7 @@ router.post('/chat', async (req: Request, res: Response) => {
  * Endpoint pour tester la connexion aux APIs IA (Groq + Claude)
  * Utile pour vérifier que les clés API sont valides
  */
-router.get('/chat/test', async (req: Request, res: Response) => {
+router.get('/test', authorize('ADMIN'), async (req: Request, res: Response) => {
     try {
         console.log('[CHAT TEST] Vérification des providers IA...');
 
