@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { userApi } from "../utils/api";
+import { userApi, projectApi } from "../utils/api";
+import MultiSelect from "../components/common/MultiSelect";
 import { useAuthStore } from "../stores/authStore";
 import toast from "react-hot-toast";
 import { Mail, Edit, Trash2, X } from "lucide-react";
@@ -12,6 +13,13 @@ interface User {
     status: "ACTIVE" | "INVITED" | "INACTIVE";
     createdAt: string;
     managedBy?: { name: string };
+    managedById?: string | null;
+    projects?: { id: string; name: string }[];
+}
+
+interface ProjectOption {
+    label: string;
+    value: string;
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -39,7 +47,10 @@ export default function UsersPage() {
         email: "",
         role: "FIELD" as "ADMIN" | "MANAGER" | "FIELD",
         managedById: "" as string | null,
+        projects: [] as ProjectOption[],
     });
+    // Projets que l'utilisateur connecté peut affecter (admin : tous ; manager : les siens)
+    const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([]);
 
     const canAccessPage = user?.role === "ADMIN" || user?.role === "MANAGER";
 
@@ -71,6 +82,16 @@ export default function UsersPage() {
 
     useEffect(() => { loadUsers(); }, []);
 
+    useEffect(() => {
+        projectApi
+            .list()
+            .then((res) => {
+                const list = Array.isArray(res.data) ? res.data : res.data?.data || [];
+                setProjectOptions(list.map((p: any) => ({ label: p.name, value: p.id })));
+            })
+            .catch(() => toast.error("Failed to load projects"));
+    }, []);
+
     const managers = users.filter(u => u.role === "MANAGER");
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -81,17 +102,25 @@ export default function UsersPage() {
             toast.error("Invalid email format"); return;
         }
 
+        const effectiveRole = isManager ? "FIELD" : formData.role;
+        if (effectiveRole !== "ADMIN" && formData.projects.length === 0) {
+            toast.error("Select at least one project"); return;
+        }
+        const projectIds = formData.projects.map((p) => p.value);
+
         setSubmitting(true);
         try {
             if (editingId) {
                 await userApi.update(editingId, {
                     name: formData.name,
                     role: formData.role,
-                    managedById: formData.managedById,
+                    // Un manager ne peut pas réassigner : on n'envoie managedById que pour l'admin
+                    ...(isAdmin ? { managedById: formData.managedById } : {}),
+                    projectIds,
                 });
                 toast.success("User updated successfully");
             } else {
-                await userApi.invite({ email: formData.email, name: formData.name, role: formData.role });
+                await userApi.invite({ email: formData.email, name: formData.name, role: effectiveRole, projectIds });
                 toast.success("Invitation sent successfully");
             }
             await loadUsers();
@@ -112,7 +141,11 @@ export default function UsersPage() {
             name: u.name,
             email: u.email,
             role: u.role as "ADMIN" | "MANAGER" | "FIELD",
-            managedById: (u as any).managedById || "",
+            managedById: u.managedById || "",
+            // Un manager ne voit (et ne modifie) que les projets qu'il gère lui-même
+            projects: (u.projects || [])
+                .map((p) => ({ label: p.name, value: p.id }))
+                .filter((p) => isAdmin || projectOptions.some((o) => o.value === p.value)),
         });
         setShowModal(true);
     };
@@ -144,7 +177,7 @@ export default function UsersPage() {
 
     const handleOpenModal  = () => { resetForm(); setEditingId(null); setShowModal(true); };
     const handleCloseModal = () => { setShowModal(false); resetForm(); };
-    const resetForm = () => setFormData({ name: "", email: "", role: "FIELD", managedById: null });
+    const resetForm = () => setFormData({ name: "", email: "", role: "FIELD", managedById: null, projects: [] });
 
     return (
         <div className="space-y-6">
@@ -180,8 +213,8 @@ export default function UsersPage() {
                         <thead>
                         <tr>
                             {(isAdmin
-                                    ? ["User", "Role", "Status", "Manager", "Actions"]
-                                    : ["User", "Role", "Status", "Actions"]
+                                    ? ["User", "Role", "Status", "Projects", "Manager", "Actions"]
+                                    : ["User", "Role", "Status", "Projects", "Actions"]
                             ).map((h) => (
                                 <th key={h} className="text-left nav-text-muted font-semibold uppercase tracking-wide text-[10px] px-4 py-3 border-b border-border">
                                     {h}
@@ -205,6 +238,13 @@ export default function UsersPage() {
                                         <span className={`px-2.5 py-1 rounded-md text-[10px] font-semibold ${STATUS_COLORS[u.status]}`}>
                                             {u.status}
                                         </span>
+                                </td>
+                                <td className="px-4 py-3 nav-text-muted">
+                                    {u.role === "ADMIN"
+                                        ? "All"
+                                        : u.projects && u.projects.length > 0
+                                            ? u.projects.map((p) => p.name).join(", ")
+                                            : <span className="text-amber-400">None — cannot create activities</span>}
                                 </td>
                                 {isAdmin && (
                                     <td className="px-4 py-3 nav-text-muted">{u.managedBy ? u.managedBy.name : "—"}</td>
@@ -309,6 +349,26 @@ export default function UsersPage() {
                                     </select>
                                 )}
                             </div>
+
+                            {/* Projects (an administrator has access to all of them) */}
+                            {(isManager || formData.role !== "ADMIN") && (
+                                <div>
+                                    <label className="block text-xs font-semibold nav-text-muted mb-2 uppercase tracking-wider">
+                                        Projects *
+                                    </label>
+                                    <MultiSelect
+                                        options={projectOptions}
+                                        value={formData.projects}
+                                        onChange={(selected) =>
+                                            setFormData({ ...formData, projects: selected as ProjectOption[] })
+                                        }
+                                        placeholder="Select projects..."
+                                    />
+                                    <p className="text-xs nav-text-muted mt-1">
+                                        The user can only create and see activities of these projects.
+                                    </p>
+                                </div>
+                            )}
 
                             {/* Manager Assignment */}
                             {isAdmin && formData.role === "FIELD" && (

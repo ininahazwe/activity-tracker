@@ -8,6 +8,37 @@ import gmailService from "../services/gmailService";
 const router = Router();
 const prisma = new PrismaClient();
 
+// Projets auxquels un utilisateur est rattaché
+async function getUserProjectIds(userId: string): Promise<string[]> {
+    const rows = await prisma.userProject.findMany({ where: { userId }, select: { projectId: true } });
+    return rows.map((r) => r.projectId);
+}
+
+// Valide une liste de projets à affecter.
+// ADMIN : n'importe quel projet existant ; MANAGER : uniquement ses propres projets.
+async function validateProjectIds(
+    requester: { userId: string; role: string },
+    raw: unknown
+): Promise<{ ids: string[] } | { error: string; status: number }> {
+    if (!Array.isArray(raw) || raw.some((v) => typeof v !== 'string')) {
+        return { error: 'projectIds must be a list of project ids', status: 400 };
+    }
+    const ids = [...new Set(raw as string[])];
+
+    if (ids.length > 0) {
+        const found = await prisma.project.count({ where: { id: { in: ids } } });
+        if (found !== ids.length) return { error: 'Unknown project in projectIds', status: 400 };
+    }
+
+    if (requester.role === 'MANAGER') {
+        const own = new Set(await getUserProjectIds(requester.userId));
+        if (ids.some((id) => !own.has(id))) {
+            return { error: 'Managers can only assign their own projects', status: 403 };
+        }
+    }
+    return { ids };
+}
+
 // Le JWT ne contient pas le nom : on le relit pour l'e-mail d'invitation
 async function getInviterName(userId: string): Promise<string> {
     const inviter = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
@@ -40,11 +71,12 @@ router.get('/', authenticate, authorize('ADMIN', 'MANAGER'), async (req, res) =>
                 createdAt: true,
                 managedById: true,
                 managedBy: { select: { id: true, name: true } },
+                projects: { select: { project: { select: { id: true, name: true } } } },
             },
             orderBy: { createdAt: 'desc' },
         });
 
-        res.json(users);
+        res.json(users.map(({ projects, ...u }) => ({ ...u, projects: projects.map((p) => p.project) })));
     } catch (error) {
         console.error('Error fetching users:', error);
         res.status(500).json({ error: 'Failed to fetch users' });
@@ -57,7 +89,7 @@ router.get('/', authenticate, authorize('ADMIN', 'MANAGER'), async (req, res) =>
 
 router.post('/invite', authenticate, authorize('ADMIN', 'MANAGER'), async (req, res) => {
     try {
-        const { email, name, role } = req.body;
+        const { email, name, role, projectIds } = req.body;
         const requester = req.user as any;
 
         // Validation
@@ -75,6 +107,15 @@ router.post('/invite', authenticate, authorize('ADMIN', 'MANAGER'), async (req, 
             return res.status(403).json({
                 error: 'Managers can only invite Field Agents'
             });
+        }
+
+        // Projets : obligatoires pour un agent ou un manager (sans projet, ils ne peuvent rien saisir)
+        const projectCheck = await validateProjectIds(requester, projectIds ?? []);
+        if ('error' in projectCheck) {
+            return res.status(projectCheck.status).json({ error: projectCheck.error });
+        }
+        if (role !== 'ADMIN' && projectCheck.ids.length === 0) {
+            return res.status(400).json({ error: 'At least one project is required' });
         }
 
         // Vérifier si l'email existe déjà
@@ -106,6 +147,7 @@ router.post('/invite', authenticate, authorize('ADMIN', 'MANAGER'), async (req, 
                 invitationToken,
                 invitationExpires,
                 managedById,
+                projects: { create: projectCheck.ids.map((projectId) => ({ projectId })) },
             },
             select: {
                 id: true,
@@ -200,7 +242,7 @@ router.post('/accept-invitation', async (req, res) => {
 router.put('/:id', authenticate, authorize('ADMIN', 'MANAGER'), async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, role, status, managedById } = req.body;
+        const { name, role, status, managedById, projectIds } = req.body;
         const requester = req.user as any;
 
         // ✨ ADMIN peut réassigner, MANAGER ne peut pas
@@ -255,6 +297,29 @@ router.put('/:id', authenticate, authorize('ADMIN', 'MANAGER'), async (req, res)
             }
         }
 
+        // Projets : un manager ne modifie que la part de ses propres projets
+        let projectUpdate: { scope: string[] | null; ids: string[] } | null = null;
+        if (projectIds !== undefined) {
+            const projectCheck = await validateProjectIds(requester, projectIds);
+            if ('error' in projectCheck) {
+                return res.status(projectCheck.status).json({ error: projectCheck.error });
+            }
+            const effectiveRole = role || userToUpdate.role;
+            if (effectiveRole !== 'ADMIN') {
+                // Projets qui resteront après la modification (hors périmètre du manager = inchangés)
+                const current = await getUserProjectIds(id);
+                const scope = requester.role === 'ADMIN' ? null : await getUserProjectIds(requester.userId);
+                const kept = scope ? current.filter((p) => !scope.includes(p)) : [];
+                if (kept.length + projectCheck.ids.length === 0) {
+                    return res.status(400).json({ error: 'At least one project is required' });
+                }
+            }
+            projectUpdate = {
+                scope: requester.role === 'ADMIN' ? null : await getUserProjectIds(requester.userId),
+                ids: projectCheck.ids,
+            };
+        }
+
         const updateData: any = {};
         if (name) updateData.name = name;
         if (role) updateData.role = role;
@@ -263,16 +328,32 @@ router.put('/:id', authenticate, authorize('ADMIN', 'MANAGER'), async (req, res)
             updateData.managedById = managedById || null;
         }
 
-        const updatedUser = await prisma.user.update({
-            where: { id },
-            data: updateData,
-            select: {
-                id: true,
-                email: true,
-                name: true,
-                role: true,
-                status: true,
-            },
+        const updatedUser = await prisma.$transaction(async (tx) => {
+            if (projectUpdate) {
+                await tx.userProject.deleteMany({
+                    where: {
+                        userId: id,
+                        ...(projectUpdate.scope ? { projectId: { in: projectUpdate.scope } } : {}),
+                    },
+                });
+                if (projectUpdate.ids.length > 0) {
+                    await tx.userProject.createMany({
+                        data: projectUpdate.ids.map((projectId) => ({ userId: id, projectId })),
+                        skipDuplicates: true,
+                    });
+                }
+            }
+            return tx.user.update({
+                where: { id },
+                data: updateData,
+                select: {
+                    id: true,
+                    email: true,
+                    name: true,
+                    role: true,
+                    status: true,
+                },
+            });
         });
 
         res.json(updatedUser);
