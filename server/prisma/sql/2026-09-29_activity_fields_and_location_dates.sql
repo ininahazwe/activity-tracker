@@ -35,8 +35,6 @@ UPDATE `activities`
    SET `total_attendees` = COALESCE(`male_count`, 0) + COALESCE(`female_count`, 0) + COALESCE(`non_binary_count`, 0)
  WHERE COALESCE(`total_attendees`, 0) = 0;
 
--- Vérification (doit renvoyer les 6 nouvelles colonnes)
-SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE
-  FROM INFORMATION_SCHEMA.COLUMNS
- WHERE TABLE_SCHEMA = DATABASE()
-   AND COLUMN_NAME IN ('key_outputs','means_of_verification','evidence_available','women_leadership','date_start','date_end');
+-- Vérification (sans accès à INFORMATION_SCHEMA, refusé sur l'hébergement cPanel)
+SHOW COLUMNS FROM `activities` WHERE Field IN ('key_outputs','means_of_verification','evidence_available','women_leadership');
+SHOW COLUMNS FROM `activity_locations` WHERE Field IN ('date_start','date_end');
