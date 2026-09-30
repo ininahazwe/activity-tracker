@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { authenticate, authorize } from "../middleware/auth";
 import gmailService from "../services/gmailService";
+import { logAudit, diffChanges } from "../services/audit";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -159,7 +160,8 @@ router.post('/invite', authenticate, authorize('ADMIN', 'MANAGER'), async (req, 
             },
         });
 
-        // ✨ Envoyer l'email d'invitation avec Resend
+        // Envoi de l'e-mail : un échec ne bloque pas la création, mais il est signalé au client
+        let emailSent = true;
         try {
             await gmailService.sendInvitation({
                 recipientEmail: email,
@@ -170,15 +172,24 @@ router.post('/invite', authenticate, authorize('ADMIN', 'MANAGER'), async (req, 
             });
             console.log(`✅ Email d'invitation envoyé à ${email}`);
         } catch (emailError) {
+            emailSent = false;
             console.warn(`⚠️ Email non envoyé à ${email}:`, emailError);
-            // Ne pas bloquer la création d'utilisateur si l'email échoue
         }
 
+        await logAudit({
+            userId: requester.userId,
+            action: 'INVITE',
+            entityType: 'User',
+            entityId: user.id,
+            changes: { email: user.email, role: user.role, projectIds: projectCheck.ids, emailSent },
+            ipAddress: req.ip,
+        });
+
         res.status(201).json({
-            message: 'User invited successfully',
+            message: emailSent ? 'User invited successfully' : 'User created, but the invitation email could not be sent',
             user,
             invitationLink: `/accept-invitation?token=${invitationToken}`,
-            emailSent: true,
+            emailSent,
         });
     } catch (error) {
         console.error('Error inviting user:', error);
@@ -282,6 +293,11 @@ router.put('/:id', authenticate, authorize('ADMIN', 'MANAGER'), async (req, res)
             return res.status(400).json({ error: 'Invalid status' });
         }
 
+        // On ne se désactive pas soi-même (on perdrait immédiatement l'accès)
+        if (status === 'INACTIVE' && id === requester.userId) {
+            return res.status(400).json({ error: 'You cannot deactivate your own account' });
+        }
+
         // Ne pas permettre la désactivation ni la rétrogradation du dernier admin
         if (status === 'INACTIVE' || (role && role !== 'ADMIN')) {
             if (userToUpdate.role === 'ADMIN') {
@@ -323,7 +339,10 @@ router.put('/:id', authenticate, authorize('ADMIN', 'MANAGER'), async (req, res)
         const updateData: any = {};
         if (name) updateData.name = name;
         if (role) updateData.role = role;
-        if (status) updateData.status = status;
+        if (status) {
+            // Un compte qui n'a jamais défini de mot de passe redevient "invité", pas "actif"
+            updateData.status = status === 'ACTIVE' && !userToUpdate.passwordHash ? 'INVITED' : status;
+        }
         if (requester.role === 'ADMIN' && managedById !== undefined) {
             updateData.managedById = managedById || null;
         }
@@ -356,6 +375,24 @@ router.put('/:id', authenticate, authorize('ADMIN', 'MANAGER'), async (req, res)
             });
         });
 
+        // Journal d'audit : champs modifiés + projets affectés
+        const after = { ...userToUpdate, ...updateData };
+        const changes: Record<string, unknown> = { ...(diffChanges(userToUpdate as any, after as any, ['name', 'role', 'status', 'managedById']) as object | undefined) };
+        if (projectUpdate) changes.projectIds = projectUpdate.ids;
+        if (Object.keys(changes).length > 0) {
+            const statusChanged = updateData.status && updateData.status !== userToUpdate.status;
+            await logAudit({
+                userId: requester.userId,
+                action: statusChanged && updateData.status === 'INACTIVE' ? 'DEACTIVATE'
+                    : statusChanged && userToUpdate.status === 'INACTIVE' ? 'REACTIVATE'
+                    : 'UPDATE',
+                entityType: 'User',
+                entityId: id,
+                changes: changes as any,
+                ipAddress: req.ip,
+            });
+        }
+
         res.json(updatedUser);
     } catch (error) {
         console.error('Error updating user:', error);
@@ -385,6 +422,10 @@ router.delete('/:id', authenticate, authorize('ADMIN', 'MANAGER'), async (req, r
             });
         }
 
+        if (id === requester.userId) {
+            return res.status(400).json({ error: 'You cannot delete your own account' });
+        }
+
         // Vérifier que ce n'est pas le dernier admin
         if (user.role === 'ADMIN') {
             const adminCount = await prisma.user.count({
@@ -395,8 +436,30 @@ router.delete('/:id', authenticate, authorize('ADMIN', 'MANAGER'), async (req, r
             }
         }
 
+        // Un utilisateur qui a laissé des traces (activités, validations, journal d'audit) ne se supprime pas :
+        // ce serait une erreur de base de données, ou pire, la perte de l'historique. On le désactive.
+        const [activities, validations, auditEntries] = await Promise.all([
+            prisma.activity.count({ where: { createdById: id } }),
+            prisma.activity.count({ where: { validatedById: id } }),
+            prisma.auditLog.count({ where: { userId: id } }),
+        ]);
+        if (activities > 0 || validations > 0 || auditEntries > 0) {
+            return res.status(409).json({
+                error: 'This user has activity history and cannot be deleted. Deactivate the account instead.',
+            });
+        }
+
         await prisma.user.delete({
             where: { id },
+        });
+
+        await logAudit({
+            userId: requester.userId,
+            action: 'DELETE',
+            entityType: 'User',
+            entityId: id,
+            changes: { email: user.email, role: user.role },
+            ipAddress: req.ip,
         });
 
         res.json({ message: 'User deleted successfully' });
@@ -446,7 +509,7 @@ router.post('/:id/resend-invitation', authenticate, authorize('ADMIN', 'MANAGER'
             },
         });
 
-        // ✨ Envoyer l'email de renvoi avec Resend
+        let emailSent = true;
         try {
             await gmailService.sendInvitation({
                 recipientEmail: user.email,
@@ -457,13 +520,23 @@ router.post('/:id/resend-invitation', authenticate, authorize('ADMIN', 'MANAGER'
             });
             console.log(`✅ Email de renvoi envoyé à ${user.email}`);
         } catch (emailError) {
+            emailSent = false;
             console.warn(`⚠️ Email de renvoi non envoyé:`, emailError);
         }
 
+        await logAudit({
+            userId: requester.userId,
+            action: 'INVITE',
+            entityType: 'User',
+            entityId: id,
+            changes: { resent: true, emailSent },
+            ipAddress: req.ip,
+        });
+
         res.json({
-            message: 'Invitation resent successfully',
+            message: emailSent ? 'Invitation resent successfully' : 'Invitation renewed, but the email could not be sent',
             invitationLink: `/accept-invitation?token=${invitationToken}`,
-            emailSent: true,
+            emailSent,
         });
     } catch (error) {
         console.error('Error resending invitation:', error);

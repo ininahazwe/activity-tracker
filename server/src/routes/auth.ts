@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { authenticate, AuthPayload, signToken, verifyToken, loadActiveUser } from "../middleware/auth";
+import { logAudit } from "../services/audit";
 
 const prisma = new PrismaClient();
 export const authRouter = Router();
@@ -58,6 +59,7 @@ authRouter.post("/login", async (req: Request, res: Response): Promise<void> => 
         const refreshToken = signToken(payload, "refresh");
 
         console.log(`[AUTH/LOGIN] ✅ Login réussi pour ${email}`);
+        await logAudit({ userId: user.id, action: "LOGIN", entityType: "User", entityId: user.id, ipAddress: req.ip });
 
         res.json({
             token,

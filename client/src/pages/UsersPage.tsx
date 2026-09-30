@@ -3,7 +3,7 @@ import { userApi, projectApi } from "../utils/api";
 import MultiSelect from "../components/common/MultiSelect";
 import { useAuthStore } from "../stores/authStore";
 import toast from "react-hot-toast";
-import { Mail, Edit, Trash2, X } from "lucide-react";
+import { Mail, Edit, Trash2, X, UserX, UserCheck } from "lucide-react";
 
 interface User {
     id: string;
@@ -42,6 +42,7 @@ export default function UsersPage() {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+    const [deactivateConfirm, setDeactivateConfirm] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         name: "",
         email: "",
@@ -78,6 +79,19 @@ export default function UsersPage() {
         } finally {
             setLoading(false);
         }
+    };
+
+    // L'e-mail d'invitation n'a pas pu partir : on donne le lien à transmettre soi-même
+    const reportEmailFailure = async (relativeLink?: string) => {
+        const link = relativeLink ? `${window.location.origin}${relativeLink}` : "";
+        let copied = false;
+        try {
+            if (link) { await navigator.clipboard.writeText(link); copied = true; }
+        } catch { /* presse-papiers indisponible : le lien reste affiché */ }
+        toast.error(
+            `The invitation email could not be sent.${link ? ` ${copied ? "The link was copied — " : ""}Send this link to the user: ${link}` : ""}`,
+            { duration: 15000 }
+        );
     };
 
     useEffect(() => { loadUsers(); }, []);
@@ -120,8 +134,12 @@ export default function UsersPage() {
                 });
                 toast.success("User updated successfully");
             } else {
-                await userApi.invite({ email: formData.email, name: formData.name, role: effectiveRole, projectIds });
-                toast.success("Invitation sent successfully");
+                const res = await userApi.invite({ email: formData.email, name: formData.name, role: effectiveRole, projectIds });
+                if (res.data?.emailSent === false) {
+                    await reportEmailFailure(res.data?.invitationLink);
+                } else {
+                    toast.success("Invitation sent successfully");
+                }
             }
             await loadUsers();
             resetForm();
@@ -165,10 +183,29 @@ export default function UsersPage() {
         }
     };
 
+    // Désactiver = garder l'historique mais couper l'accès (effet immédiat) ; réactiver = rétablir l'accès
+    const handleToggleActive = async (id: string) => {
+        const target = users.find((u) => u.id === id);
+        if (!target) return;
+        const newStatus = target.status === "INACTIVE" ? "ACTIVE" : "INACTIVE";
+        try {
+            await userApi.update(id, { status: newStatus });
+            toast.success(newStatus === "INACTIVE" ? "User deactivated" : "User reactivated");
+            setDeactivateConfirm(null);
+            await loadUsers();
+        } catch (error: any) {
+            toast.error(error.response?.data?.error || "Failed to update user");
+        }
+    };
+
     const handleResendInvitation = async (id: string) => {
         try {
-            await userApi.resendInvitation(id);
-            toast.success("Invitation resent successfully");
+            const res = await userApi.resendInvitation(id);
+            if (res.data?.emailSent === false) {
+                await reportEmailFailure(res.data?.invitationLink);
+            } else {
+                toast.success("Invitation resent successfully");
+            }
             await loadUsers();
         } catch (error: any) {
             toast.error(error.response?.data?.error || "Failed to resend invitation");
@@ -267,13 +304,34 @@ export default function UsersPage() {
                                         >
                                             <Edit className="w-4 h-4" />
                                         </button>
-                                        <button
-                                            onClick={() => setDeleteConfirm(u.id)}
-                                            className="p-2 hover:bg-card-hover rounded-lg transition-colors text-red-500/70 hover:text-red-500"
-                                            title="Delete user"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                        {u.id !== user?.id && (
+                                            <>
+                                                {u.status === "INACTIVE" ? (
+                                                    <button
+                                                        onClick={() => handleToggleActive(u.id)}
+                                                        className="p-2 hover:bg-card-hover rounded-lg transition-colors text-emerald-400/80 hover:text-emerald-400"
+                                                        title="Reactivate user"
+                                                    >
+                                                        <UserCheck className="w-4 h-4" />
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => setDeactivateConfirm(u.id)}
+                                                        className="p-2 hover:bg-card-hover rounded-lg transition-colors text-amber-400/80 hover:text-amber-400"
+                                                        title="Deactivate user"
+                                                    >
+                                                        <UserX className="w-4 h-4" />
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={() => setDeleteConfirm(u.id)}
+                                                    className="p-2 hover:bg-card-hover rounded-lg transition-colors text-red-500/70 hover:text-red-500"
+                                                    title="Delete user"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </>
+                                        )}
                                     </div>
                                 </td>
                             </tr>
@@ -414,6 +472,36 @@ export default function UsersPage() {
                 </div>
             )}
 
+            {/* Deactivate Confirmation Modal */}
+            {deactivateConfirm && (
+                <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+                    <div className="card border border-border rounded-2xl max-w-sm w-full p-8 shadow-2xl">
+                        <div className="w-12 h-12 bg-amber-500/20 text-amber-400 rounded-lg flex items-center justify-center mx-auto mb-4">
+                            <UserX className="w-6 h-6" />
+                        </div>
+                        <h3 className="nav-text-primary font-bold text-lg text-center mb-2">Deactivate user?</h3>
+                        <p className="nav-text-muted text-sm text-center mb-6">
+                            The user can no longer sign in, effective immediately. Their activities and history are kept,
+                            and you can reactivate the account at any time.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setDeactivateConfirm(null)}
+                                className="flex-1 px-4 py-2.5 bg-card-hover border border-border nav-text-muted font-semibold rounded-lg hover:border-accent transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => handleToggleActive(deactivateConfirm)}
+                                className="flex-1 px-4 py-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 font-semibold rounded-lg hover:bg-amber-500/20 transition-colors"
+                            >
+                                Deactivate
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Delete Confirmation Modal */}
             {deleteConfirm && (
                 <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
@@ -425,7 +513,8 @@ export default function UsersPage() {
                             Delete User?
                         </h3>
                         <p className="nav-text-muted text-sm text-center mb-6">
-                            Are you sure you want to delete this user? This action cannot be undone.
+                            This permanently deletes the account and cannot be undone. Only users without any activity
+                            can be deleted — to keep the history, deactivate the account instead.
                         </p>
                         <div className="flex gap-3">
                             <button

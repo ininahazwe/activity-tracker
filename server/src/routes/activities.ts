@@ -3,6 +3,7 @@ import { PrismaClient, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { authenticate, authorize, authorizeProject, hasProjectAccess, AuthPayload } from "../middleware/auth";
 import { notifyActivitySubmitted, notifyActivityRejected } from "../services/activityNotifications";
+import { logAudit, diffChanges } from "../services/audit";
 import { createActivitySchema, updateActivitySchema, validateActivitySchema, activityFilterSchema } from "../utils/validation";
 
 const prisma = new PrismaClient();
@@ -249,6 +250,15 @@ activityRouter.post("/", authorizeProject("projectId", true), async (req: Reques
       include: fullInclude,
     });
 
+    await logAudit({
+      userId: req.user!.userId,
+      action: "CREATE",
+      entityType: "Activity",
+      entityId: activity.id,
+      changes: { activityTitle: activity.activityTitle, projectId: activity.projectId },
+      ipAddress: req.ip,
+    });
+
     res.status(201).json(activity);
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -264,10 +274,8 @@ activityRouter.post("/", authorizeProject("projectId", true), async (req: Reques
 // une relation (lieux, bailleurs…) n'est remplacée que si elle est envoyée.
 activityRouter.put("/:id", async (req: Request, res: Response) => {
   try {
-    const existing = await prisma.activity.findUnique({
-      where: { id: req.params.id },
-      select: { ...accessSelect, maleCount: true, femaleCount: true, nonBinaryCount: true },
-    });
+    // Ligne complète : sert aux droits, au calcul du total et au journal des modifications
+    const existing = await prisma.activity.findUnique({ where: { id: req.params.id } });
 
     if (!existing) return res.status(404).json({ error: "Activity not found" });
     if (!(await canEditActivity(req.user!, existing))) {
@@ -308,6 +316,24 @@ activityRouter.put("/:id", async (req: Request, res: Response) => {
       include: fullInclude,
     });
 
+    // Journal : champs simples modifiés + relations remplacées (lieux, bailleurs…)
+    const changes: Record<string, unknown> = {
+      ...(diffChanges(existing as any, activity as any, ["projectId", ...SCALAR_FIELDS]) as object | undefined),
+    };
+    const replaced = (["locations", "funders", "activityTypes", "thematicFocus", "targetGroups"] as const)
+        .filter((key) => data[key] !== undefined);
+    if (replaced.length > 0) changes.relationsReplaced = replaced;
+    if (Object.keys(changes).length > 0) {
+      await logAudit({
+        userId: req.user!.userId,
+        action: "UPDATE",
+        entityType: "Activity",
+        entityId: activity.id,
+        changes: changes as any,
+        ipAddress: req.ip,
+      });
+    }
+
     res.json(activity);
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -334,6 +360,14 @@ activityRouter.post("/:id/submit", async (req, res) => {
     const updated = await prisma.activity.update({
       where: { id: req.params.id },
       data: { status: "SUBMITTED", rejectionReason: null }
+    });
+    await logAudit({
+      userId: req.user!.userId,
+      action: "SUBMIT",
+      entityType: "Activity",
+      entityId: updated.id,
+      changes: { status: { old: existing.status, new: "SUBMITTED" } },
+      ipAddress: req.ip,
     });
     // E-mail aux valideurs, sans attendre (ne bloque pas la réponse)
     void notifyActivitySubmitted(updated.id);
@@ -367,6 +401,17 @@ activityRouter.post("/:id/validate", authorize("ADMIN", "MANAGER"), async (req, 
       where: { id: req.params.id },
       data: { status, validatedById: req.user!.userId, rejectionReason: status === "REJECTED" ? rejectionReason : null }
     });
+    await logAudit({
+      userId: req.user!.userId,
+      action: status === "REJECTED" ? "REJECT" : "VALIDATE",
+      entityType: "Activity",
+      entityId: updated.id,
+      changes: {
+        status: { old: existing.status, new: status },
+        ...(status === "REJECTED" ? { rejectionReason: rejectionReason!.trim() } : {}),
+      },
+      ipAddress: req.ip,
+    });
     if (status === "REJECTED") {
       void notifyActivityRejected(updated.id, req.user!.userId, rejectionReason!.trim());
     }
@@ -382,9 +427,24 @@ activityRouter.post("/:id/validate", authorize("ADMIN", "MANAGER"), async (req, 
 
 activityRouter.delete("/:id", authorize("ADMIN"), async (req, res) => {
   try {
+    const existing = await prisma.activity.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, activityTitle: true, projectId: true, status: true, createdById: true },
+    });
+    if (!existing) return res.status(404).json({ error: "Activity not found" });
+
     await prisma.activity.delete({ where: { id: req.params.id } });
+    await logAudit({
+      userId: req.user!.userId,
+      action: "DELETE",
+      entityType: "Activity",
+      entityId: existing.id,
+      changes: { activityTitle: existing.activityTitle, projectId: existing.projectId, status: existing.status, createdById: existing.createdById },
+      ipAddress: req.ip,
+    });
     res.json({ success: true });
   } catch (err) {
+    console.error("[ACTIVITIES] Delete error:", err);
     res.status(500).json({ error: "Failed to delete activity" });
   }
 });
