@@ -13,6 +13,14 @@ const STATUS_COLORS: Record<string, string> = {
     REJECTED:  "bg-red-400/10 text-red-400",
 };
 
+// "12/09/2026 - 15/09/2026", ou "—" quand aucune date n'est renseignée
+function formatPeriod(start?: string | null, end?: string | null): string {
+    const fmt = (d?: string | null) => (d ? new Date(d).toLocaleDateString() : "");
+    if (!start && !end) return "—";
+    if (!end || fmt(end) === fmt(start)) return fmt(start);
+    return `${fmt(start)} - ${fmt(end)}`;
+}
+
 export default function ActivitiesPage() {
     const navigate = useNavigate();
     const authUser = useAuthStore((s) => s.user);
@@ -27,6 +35,22 @@ export default function ActivitiesPage() {
     const [dateStartFilter, setDateStartFilter] = useState("");
     const [dateEndFilter, setDateEndFilter] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
+
+    // La recherche n'interroge le serveur qu'après une courte pause de frappe
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    useEffect(() => {
+        const t = setTimeout(() => {
+            setDebouncedSearch(searchTitle.trim());
+            setCurrentPage(1);
+        }, 300);
+        return () => clearTimeout(t);
+    }, [searchTitle]);
+
+    // Tout changement de filtre ramène à la première page (sinon on peut se retrouver sur une page vide)
+    const onFilter = (setter: (value: string) => void) => (value: string) => {
+        setter(value);
+        setCurrentPage(1);
+    };
 
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedActivity, setSelectedActivity] = useState<any>(null);
@@ -58,10 +82,10 @@ export default function ActivitiesPage() {
                 params.append("page", String(currentPage));
                 params.append("limit", "10");
                 if (statusFilter !== "all") params.append("status", statusFilter);
-                if (searchTitle)           params.append("search", searchTitle);
+                if (debouncedSearch)       params.append("search", debouncedSearch);
                 if (projectFilter)         params.append("projectId", projectFilter);
-                if (dateStartFilter)       params.append("startDate", dateStartFilter);
-                if (dateEndFilter)         params.append("endDate", dateEndFilter);
+                if (dateStartFilter)       params.append("dateFrom", dateStartFilter);
+                if (dateEndFilter)         params.append("dateTo", dateEndFilter);
 
                 // Le périmètre par rôle (projets du manager, activités de l'agent) est appliqué par le serveur
                 const res = await activityApi.list(params);
@@ -75,7 +99,7 @@ export default function ActivitiesPage() {
             }
         };
         fetchActivities();
-    }, [currentPage, statusFilter, searchTitle, projectFilter, dateStartFilter, dateEndFilter, authUser?.id, authUser?.role, refreshKey]);
+    }, [currentPage, statusFilter, debouncedSearch, projectFilter, dateStartFilter, dateEndFilter, authUser?.id, authUser?.role, refreshKey]);
 
     // Compteur : à valider (managers/admins) ou à corriger (agents)
     useEffect(() => {
@@ -170,7 +194,7 @@ export default function ActivitiesPage() {
                         </label>
                         <select
                             value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
+                            onChange={(e) => onFilter(setStatusFilter)(e.target.value)}
                             className="input-field"
                         >
                             <option value="all">All Status</option>
@@ -188,7 +212,7 @@ export default function ActivitiesPage() {
                         </label>
                         <select
                             value={projectFilter}
-                            onChange={(e) => setProjectFilter(e.target.value)}
+                            onChange={(e) => onFilter(setProjectFilter)(e.target.value)}
                             className="input-field"
                         >
                             <option value="">All Projects</option>
@@ -206,7 +230,7 @@ export default function ActivitiesPage() {
                         <input
                             type="date"
                             value={dateStartFilter}
-                            onChange={(e) => setDateStartFilter(e.target.value)}
+                            onChange={(e) => onFilter(setDateStartFilter)(e.target.value)}
                             className="input-field"
                         />
                     </div>
@@ -219,7 +243,7 @@ export default function ActivitiesPage() {
                         <input
                             type="date"
                             value={dateEndFilter}
-                            onChange={(e) => setDateEndFilter(e.target.value)}
+                            onChange={(e) => onFilter(setDateEndFilter)(e.target.value)}
                             className="input-field"
                         />
                     </div>
@@ -275,7 +299,7 @@ export default function ActivitiesPage() {
                                 <td className="px-4 py-3 nav-text-muted">{a.createdBy?.name || "Unknown"}</td>
                                 <td className="px-4 py-3 nav-text-muted">{a.project?.name}</td>
                                 <td className="px-4 py-3 nav-text-muted font-mono text-[10px]">
-                                    {new Date(a.activityStartDate).toLocaleDateString()} - {new Date(a.activityEndDate).toLocaleDateString()}
+                                    {formatPeriod(a.activityStartDate, a.activityEndDate)}
                                 </td>
                                 <td className="px-4 py-3">
                                         <span className={`px-2.5 py-1 rounded-md text-[10px] font-semibold ${STATUS_COLORS[a.status] || ""}`}>

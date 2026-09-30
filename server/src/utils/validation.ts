@@ -103,7 +103,8 @@ export const updateFinanceSchema = createFinanceSchema.partial();
 export const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
-  sortBy: z.string().optional().default("createdAt"),
+  // Liste blanche : un nom de champ libre ferait échouer la requête Prisma (erreur 500)
+  sortBy: z.enum(["createdAt", "updatedAt", "activityTitle", "activityStartDate", "status"]).optional().default("createdAt"),
   sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
 });
 
@@ -114,8 +115,7 @@ export const activityFilterSchema = paginationSchema.extend({
   funder: z.string().optional(),
   thematic: z.string().optional(),
   search: z.string().optional(),
-  dateFrom: z.string().optional(),
-  dateTo: z.string().optional(),
-  dateStart: z.string().optional(),
-  dateEnd: z.string().optional(),
+  // Période sur la date de début de l'activité, au format AAAA-MM-JJ
+  dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "dateFrom must be YYYY-MM-DD").optional(),
+  dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "dateTo must be YYYY-MM-DD").optional(),
 });

@@ -59,11 +59,8 @@ const accessSelect = { id: true, projectId: true, createdById: true, status: tru
 // ─── GET /api/activities ───
 activityRouter.get("/", async (req: Request, res: Response) => {
   try {
-    console.log("[ACTIVITIES] Raw query params:", req.query);
     const filters = activityFilterSchema.parse(req.query);
-    console.log("[ACTIVITIES] Parsed filters:", filters);
-    const { page, limit, sortBy, sortOrder, projectId, status, search, country, funder, thematic } = filters;
-    console.log("[ACTIVITIES] Extracted search param:", search);
+    const { page, limit, sortBy, sortOrder, projectId, status, search, country, funder, thematic, dateFrom, dateTo } = filters;
 
     const where: Prisma.ActivityWhereInput = {};
 
@@ -88,11 +85,17 @@ activityRouter.get("/", async (req: Request, res: Response) => {
     }
 
     if (status) where.status = status as any;
+    // Recherche : le titre CONTIENT le texte (insensible à la casse avec la collation MySQL par défaut)
     if (search && search.trim()) {
-      console.log("[ACTIVITIES] Applying search filter:", search.trim());
-      where.activityTitle = {
-        startsWith: search.trim()
-      } as any;
+      where.activityTitle = { contains: search.trim() };
+    }
+
+    // Période : date de début de l'activité entre dateFrom et dateTo (inclus)
+    if (dateFrom || dateTo) {
+      where.activityStartDate = {
+        ...(dateFrom ? { gte: new Date(`${dateFrom}T00:00:00.000Z`) } : {}),
+        ...(dateTo ? { lte: new Date(`${dateTo}T23:59:59.999Z`) } : {}),
+      };
     }
 
     if (country) where.locations = { some: { countryId: country } };
