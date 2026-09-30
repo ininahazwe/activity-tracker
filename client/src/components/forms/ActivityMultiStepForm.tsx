@@ -6,6 +6,7 @@ import LocationBlock from "./LocationBlock";
 import { useReferenceData } from "@/hooks/useReferenceData.ts";
 import { ActivityFormData } from "@/types";
 import { activityApi, projectApi } from "@/utils/api.ts";
+import { participantWarnings } from "@/utils/participants";
 
 const STEPS = [
     { id: "identity", label: "Identification", icon: "📋", desc: "Project & activity basics" },
@@ -183,6 +184,9 @@ export default function ActivityMultiStepForm() {
         () => form.ageUnder25 + form.age25to40 + form.age40plus,
         [form.ageUnder25, form.age25to40, form.age40plus]
     );
+
+    // Incohérences entre les ventilations (avertissements, jamais bloquants)
+    const warnings = useMemo(() => participantWarnings(form), [form]);
 
     // Setter helper
     const set = (key: keyof ActivityFormData, value: any) => {
@@ -471,7 +475,17 @@ export default function ActivityMultiStepForm() {
                     <NumField label="With Disability" value={form.disabilityYes} onChange={(v) => set("disabilityYes", v)} />
                     <NumField label="Without Disability" value={form.disabilityNo} onChange={(v) => set("disabilityNo", v)} />
                 </div>
+                <p className="text-accent text-xs mt-2">Total: {form.disabilityYes + form.disabilityNo}</p>
             </div>
+
+            {warnings.length > 0 && (
+                <div className="mt-4 p-3 rounded-lg bg-amber-400/10 border border-amber-400/20">
+                    <p className="text-amber-400 text-xs font-semibold mb-1">Points to check (you can still save)</p>
+                    <ul className="list-disc list-inside text-amber-300 text-xs space-y-0.5">
+                        {warnings.map((w) => <li key={w}>{w}</li>)}
+                    </ul>
+                </div>
+            )}
         </div>
     );
 
@@ -661,6 +675,14 @@ export default function ActivityMultiStepForm() {
             <div className="bg-accent/5 border border-accent/20 rounded-lg p-4">
                 <p className="text-gray-400 text-xs font-semibold mb-2">PARTICIPANTS</p>
                 <p className="text-gray-200 text-sm">Total: {totalAttendees} people</p>
+                {warnings.length > 0 && (
+                    <div className="mt-3 p-3 rounded-lg bg-amber-400/10 border border-amber-400/20">
+                    <p className="text-amber-400 text-xs font-semibold mb-1">Points to check (you can still save)</p>
+                    <ul className="list-disc list-inside text-amber-300 text-xs space-y-0.5">
+                        {warnings.map((w) => <li key={w}>{w}</li>)}
+                    </ul>
+                </div>
+                )}
             </div>
 
             <div className="text-gray-400 text-xs text-center py-4">

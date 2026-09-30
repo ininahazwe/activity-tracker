@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import { X, AlertCircle, Download, Send, CheckCircle2, XCircle } from "lucide-react";
 import ActivityChatBot from "../../components/ActivityChatBot.tsx";
 import { activityApi } from "../../utils/api";
+import { participantWarnings } from "../../utils/participants";
 
 const STATUS_COLORS: Record<string, string> = {
     VALIDATED: "bg-emerald-400/10 text-emerald-400",
@@ -395,6 +396,14 @@ export default function ActivityDetailModal({ activity: activityProp, isOpen, on
                                 <DetailField label="Age: <25 / 25-40 / 40+"  value={`${activity.ageUnder25 || 0} / ${activity.age25to40 || 0} / ${activity.age40plus || 0}`} />
                                 <DetailField label="Disability: Yes / No"     value={`${activity.disabilityYes || 0} / ${activity.disabilityNo || 0}`} />
                             </div>
+                            {participantWarnings(activity).length > 0 && (
+                                <div className="mt-3 p-3 rounded-lg bg-amber-400/10 border border-amber-400/20">
+                                    <p className="text-amber-400 text-xs font-semibold mb-1">Figures to check</p>
+                                    <ul className="list-disc list-inside text-amber-300 text-xs space-y-0.5">
+                                        {participantWarnings(activity).map((w) => <li key={w}>{w}</li>)}
+                                    </ul>
+                                </div>
+                            )}
                         </DetailSection>
 
                         {/* Results & Outputs */}
