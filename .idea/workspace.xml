@@ -1,18 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
   <component name="ChangeListManager">
     <list default="true" id="202580ea-c0d2-4328-94c9-aa54b1e60175" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/client/src/pages/ProgrammesSettings.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/server/src/routes/programmes.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/App.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/src/components/ReferenceDataSettings.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/ReferenceDataSettings.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/src/components/layout/AppShell.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/components/layout/AppShell.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/src/pages/Projectssettings.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/pages/Projectssettings.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/src/pages/SettingsPages.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/pages/SettingsPages.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/server/prisma/schema.prisma" beforeDir="false" afterPath="$PROJECT_DIR$/server/prisma/schema.prisma" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/server/src/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/src/index.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/server/src/routes/projects.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/src/routes/projects.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/client/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/server/package-lock.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -40,8 +35,9 @@
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "git-widget-placeholder": "main",
+    "git-widget-placeholder": "fix/settings-reference",
     "last_opened_file_path": "C:/Users/Dell/Documents/Dev/Tracker/server/src/services",
+    "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
     "ts.external.directory.path": "C:\\Users\\Dell\\Documents\\Dev\\Tracker\\client\\node_modules\\typescript\\lib",
     "vue.rearranger.settings.migration": "true"
