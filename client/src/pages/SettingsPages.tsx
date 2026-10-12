@@ -70,7 +70,7 @@ export function RegionsPage() {
             title="Regions"
             icon="🗺️"
             description="Manage regions within countries"
-            parentCategory="countries"
+            parentCategory="country"
         />
     );
 }
@@ -83,7 +83,7 @@ export function CitiesPage() {
             title="Cities"
             icon="🏙️"
             description="Manage cities within regions"
-            parentCategory="regions"
+            parentCategory="region"
         />
     );
 }

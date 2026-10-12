@@ -294,7 +294,11 @@ export const referenceApi = {
   list: (category: string) =>
       api.get(`/reference/${category}`),
   create: (category: string, data: any) =>
-      api.post("/reference", { category, ...data }),
+      api.post(`/reference/${category}`, data),
+  update: (category: string, id: string, data: any) =>
+      api.put(`/reference/${category}/${id}`, data),
+  remove: (category: string, id: string) =>
+      api.delete(`/reference/${category}/${id}`),
 };
 
 export const dashboardApi = {

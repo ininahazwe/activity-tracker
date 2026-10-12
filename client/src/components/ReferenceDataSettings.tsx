@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import { api } from "../utils/api";
 import toast from "react-hot-toast";
-import {useAuthStore} from "../stores/authStore.ts";
 
 interface ReferenceItem {
     id: string;
@@ -9,7 +8,7 @@ interface ReferenceItem {
     name: string;
     description?: string;
     parentId?: string;
-    createdAt: string;
+    isActive?: boolean;
 }
 
 interface SettingsPageProps {
@@ -34,65 +33,17 @@ export default function ReferenceDataSettings({
     const [formData, setFormData] = useState({ name: "", description: "" });
     const [parents, setParents] = useState<ReferenceItem[]>([]);
     const [selectedParent, setSelectedParent] = useState<string>("");
-    const token = useAuthStore((s: { token: any; }) => s.token);
-
-    const API_BASE = "https://tracker.mfwa.org/api/reference";
-
-    // ─── GET TOKEN FROM ZUSTAND OR LOCALSTORAGE ───
-    const getAuthToken = (): string | null => {
-        // 1. Essayer depuis Zustand d'abord
-        if (token) return token;
-
-        try {
-            // 2. Essayer auth-storage (Zustand persisted)
-            const authStorage = localStorage.getItem("auth-storage");
-            if (authStorage) {
-                const parsed = JSON.parse(authStorage);
-                const storedToken = parsed.state?.token;
-                if (storedToken) return storedToken;
-            }
-        } catch (e) {
-            console.error("Error parsing auth-storage:", e);
-        }
-
-        // 3. Essayer auth-token
-        const authToken = localStorage.getItem("auth-token");
-        if (authToken) return authToken;
-
-        // 4. Essayer token direct
-        return localStorage.getItem("token");
-    };
-
-    // ─── GET HEADERS WITH TOKEN ───
-    const getHeaders = () => {
-        const authToken = getAuthToken();
-        return {
-            Authorization: `Bearer ${authToken}`,
-            "Content-Type": "application/json",
-        };
-    };
-
     // ─── LOAD ITEMS ───
     const loadItems = async () => {
         try {
             setLoading(true);
-            console.log(`[REFERENCE] Loading items for category: ${category}`);
-
-            const headers = getHeaders();
-            const res = await axios.get(`${API_BASE}/${category}`, { headers });
-
-            console.log(`[REFERENCE] Response for ${category}:`, res.data);
+            const res = await api.get(`/reference/${category}`, { params: { includeInactive: true } });
 
             // Le backend retourne { data: [...] }
             const data = res.data.data || res.data;
             setItems(Array.isArray(data) ? data : []);
         } catch (error: any) {
-            console.error(`[REFERENCE] Error loading items for ${category}:`, error);
-            console.error("[REFERENCE] Error details:", {
-                status: error.response?.status,
-                data: error.response?.data,
-                message: error.message,
-            });
+            console.error("[REFERENCE] load error:", error?.response?.status, error?.response?.data);
             toast.error(`Failed to load ${title}`);
         } finally {
             setLoading(false);
@@ -102,23 +53,13 @@ export default function ReferenceDataSettings({
     // ─── LOAD PARENTS ───
     const loadParents = async () => {
         try {
-            console.log(`[REFERENCE] Loading parents for category: ${parentCategory}`);
-
-            const headers = getHeaders();
-            const res = await axios.get(`${API_BASE}/${parentCategory}`, { headers });
-
-            console.log(`[REFERENCE] Response for ${parentCategory}:`, res.data);
+            const res = await api.get(`/reference/${parentCategory}`);
 
             // Le backend retourne { data: [...] }
             const data = res.data.data || res.data;
             setParents(Array.isArray(data) ? data : []);
         } catch (error: any) {
-            console.error(`[REFERENCE] Error loading parents for ${parentCategory}:`, error);
-            console.error("[REFERENCE] Error details:", {
-                status: error.response?.status,
-                data: error.response?.data,
-                message: error.message,
-            });
+            console.error("[REFERENCE] load error:", error?.response?.status, error?.response?.data);
             toast.error(`Failed to load ${parentCategory}`);
         }
     };
@@ -143,33 +84,23 @@ export default function ReferenceDataSettings({
             return;
         }
 
-        try {
-            const headers = getHeaders();
-            const authToken = getAuthToken();
+        if (parentCategory && !selectedParent) {
+            toast.error(`Please select a parent ${parentCategory}`);
+            return;
+        }
 
-            if (!authToken) {
-                toast.error("Not authenticated. Please login again.");
-                return;
-            }
+        try {
+            const payload = {
+                name: formData.name.trim(),
+                description: formData.description,
+                ...(parentCategory ? { parentId: selectedParent } : {}),
+            };
 
             if (editingId) {
-                // Update
-                await axios.put(`${API_BASE}/${category}/${editingId}`, formData, {
-                    headers,
-                });
+                await api.put(`/reference/${category}/${editingId}`, payload);
                 toast.success("Item updated successfully");
             } else {
-                // Create
-                await axios.post(
-                    `${API_BASE}/${category}`,
-                    {
-                        ...formData,
-                        parentId: selectedParent || null,
-                    },
-                    {
-                        headers,
-                    }
-                );
+                await api.post(`/reference/${category}`, payload);
                 toast.success("Item created successfully");
             }
 
@@ -191,26 +122,16 @@ export default function ReferenceDataSettings({
     const handleEdit = (item: ReferenceItem) => {
         setEditingId(item.id);
         setFormData({ name: item.name, description: item.description || "" });
-        if (item.parentId) setSelectedParent(item.parentId);
+        setSelectedParent(item.parentId || "");
         setShowModal(true);
     };
 
     // ─── HANDLE DELETE ───
     const handleDelete = async (id: string) => {
-        if (!confirm("Are you sure you want to delete this item?")) return;
+        if (!confirm("Delete this item permanently? If it is already used, deactivate it instead.")) return;
 
         try {
-            const headers = getHeaders();
-            const authToken = getAuthToken();
-
-            if (!authToken) {
-                toast.error("Not authenticated. Please login again.");
-                return;
-            }
-
-            await axios.delete(`${API_BASE}/${category}/${id}`, {
-                headers,
-            });
+            await api.delete(`/reference/${category}/${id}`);
             toast.success("Item deleted successfully");
             await loadItems();
         } catch (error: any) {
@@ -220,6 +141,18 @@ export default function ReferenceDataSettings({
                 error.message ||
                 "Failed to delete item";
             toast.error(errorMessage);
+        }
+    };
+
+    // ─── ACTIVATE / DEACTIVATE ───
+    const handleToggleActive = async (item: ReferenceItem) => {
+        const next = item.isActive === false;
+        try {
+            await api.put(`/reference/${category}/${item.id}`, { isActive: next });
+            toast.success(next ? "Item reactivated" : "Item deactivated");
+            await loadItems();
+        } catch (error: any) {
+            toast.error(error.response?.data?.error || "Failed to update item");
         }
     };
 
@@ -280,7 +213,7 @@ export default function ReferenceDataSettings({
                                 </th>
                             )}
                             <th className="text-left text-gray-500 font-semibold uppercase tracking-wide text-[11px] px-6 py-4 border-b border-border">
-                                Created
+                                Status
                             </th>
                             <th className="text-right text-gray-500 font-semibold uppercase tracking-wide text-[11px] px-6 py-4 border-b border-border">
                                 Actions
@@ -289,7 +222,7 @@ export default function ReferenceDataSettings({
                         </thead>
                         <tbody>
                         {items.map((item) => (
-                            <tr key={item.id} className="border-b border-border hover:bg-card-hover transition-colors">
+                            <tr key={item.id} className={`border-b border-border hover:bg-card-hover transition-colors ${item.isActive === false ? "opacity-50" : ""}`}>
                                 <td className="px-6 py-4">
                                     <p className="nav-text-primary font-medium">{item.name}</p>
                                 </td>
@@ -306,7 +239,7 @@ export default function ReferenceDataSettings({
                                     </td>
                                 )}
                                 <td className="px-6 py-4 text-gray-400 text-xs">
-                                    {new Date(item.createdAt).toLocaleDateString()}
+                                    {item.isActive === false ? "Inactive" : "Active"}
                                 </td>
                                 <td className="px-6 py-4 text-right">
                                     <div className="flex items-center justify-end gap-2">
@@ -315,6 +248,13 @@ export default function ReferenceDataSettings({
                                             className="text-accent hover:text-accent/80 text-xs font-semibold transition-colors"
                                         >
                                             Edit
+                                        </button>
+                                        <span className="text-border">•</span>
+                                        <button
+                                            onClick={() => handleToggleActive(item)}
+                                            className="text-amber-400 hover:text-amber-300 text-xs font-semibold transition-colors"
+                                        >
+                                            {item.isActive === false ? "Activate" : "Deactivate"}
                                         </button>
                                         <span className="text-border">•</span>
                                         <button

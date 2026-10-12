@@ -9,7 +9,7 @@ interface AuditEntry {
       | "SUBMIT" | "VALIDATE" | "REJECT"
       | "LOGIN" | "LOGOUT"
       | "INVITE" | "DEACTIVATE" | "REACTIVATE";
-  entityType: "Activity" | "User" | "Finance" | "Project";
+  entityType: "Activity" | "User" | "Finance" | "Project" | "ReferenceData";
   entityId: string;
   changes?: Prisma.InputJsonValue;
   ipAddress?: string;
