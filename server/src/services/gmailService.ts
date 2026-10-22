@@ -181,6 +181,32 @@ export const emailService = {
     },
 
     /**
+     * Réinitialisation du mot de passe : lien à usage unique, valable 1 heure
+     */
+    async sendPasswordReset(recipient: { email: string; name: string }, resetLink: string) {
+        const html = `<html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+                    <h2 style="color: #4F46E5;">Reset your password</h2>
+                    <p>Hello <strong>${escapeHtml(recipient.name)}</strong>,</p>
+                    <p>We received a request to reset the password of your Activity Tracker Pro account. Click the button below to choose a new password. This link is valid for 1 hour and can be used only once.</p>
+                    <div style="margin: 30px 0; text-align: center;">
+                        <a href="${resetLink}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
+                            Reset password
+                        </a>
+                    </div>
+                    <p style="color: #666; font-size: 13px;">If the button doesn't work, copy and paste this link into your browser:<br>${resetLink}</p>
+                    <p style="color: #666; font-size: 12px; border-top: 1px solid #e5e7eb; padding-top: 15px;">
+                        If you did not request this, you can ignore this email: your password will not change.
+                    </p>
+                </div>
+            </body>
+        </html>`;
+        await sendHtmlEmail(recipient.email, 'Reset your Activity Tracker Pro password', html);
+        console.log(`✅ Password reset email sent to ${recipient.email}`);
+    },
+
+    /**
      * Cas de figure 2 : Envoi de l'email de confirmation d'activation de compte
      */
     async sendWelcomeEmail(email: string, name: string) {

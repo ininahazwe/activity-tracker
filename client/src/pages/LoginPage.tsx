@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../stores/authStore";
 import toast from "react-hot-toast";
 // @ts-ignore
@@ -71,7 +71,7 @@ export default function LoginPage() {
                 <label className="nav-text-muted text-[11px] font-semibold uppercase tracking-wide">
                   Password
                 </label>
-                <span className="text-accent text-xs cursor-pointer hover:underline">Forgot?</span>
+                <Link to="/forgot-password" className="text-accent text-xs hover:underline">Forgot password?</Link>
               </div>
               <input
                   type="password"

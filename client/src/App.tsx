@@ -6,6 +6,8 @@ import AppShell from "./components/layout/AppShell";
 // Chargées immédiatement : ce sont les points d'entrée de l'application
 import LoginPage from "./pages/LoginPage";
 import AcceptInvitationPage from "./pages/Acceptinvitationpage.tsx";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 
 // Chargées à la demande, une fois la route atteinte
 const DashboardPage   = lazy(() => import("./pages/DashboardPage"));
@@ -52,6 +54,8 @@ export default function App() {
         <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route
                 path="/*"
                 element={

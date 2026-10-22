@@ -69,8 +69,19 @@ const chatLimiter = rateLimit({
   message: { error: "Too many chat requests, please wait a few minutes" },
 });
 
+// Réinitialisation du mot de passe : toutes les requêtes comptent (la réponse est la même, succès ou non)
+const resetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many attempts, please try again later" },
+});
+
 app.use("/api/", globalLimiter);
 app.use("/api/auth/login", loginLimiter);
+app.use("/api/auth/forgot-password", resetLimiter);
+app.use("/api/auth/reset-password", resetLimiter);
 app.use("/api/users/accept-invitation", loginLimiter);
 
 // ─── AI CHAT (authentification obligatoire) ───
