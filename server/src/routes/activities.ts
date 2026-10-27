@@ -4,7 +4,7 @@ import { z } from "zod";
 import { authenticate, authorize, authorizeProject, hasProjectAccess, AuthPayload } from "../middleware/auth";
 import { notifyActivitySubmitted, notifyActivityRejected } from "../services/activityNotifications";
 import { logAudit, diffChanges } from "../services/audit";
-import { createActivitySchema, updateActivitySchema, validateActivitySchema, activityFilterSchema } from "../utils/validation";
+import { draftActivitySchema, draftUpdateActivitySchema, updateActivitySchema, validateActivitySchema, activityFilterSchema } from "../utils/validation";
 
 const prisma = new PrismaClient();
 export const activityRouter = Router();
@@ -231,7 +231,8 @@ function activityPeriod(locations: LocationInput[]) {
 // ─── POST /api/activities ───
 activityRouter.post("/", authorizeProject("projectId", true), async (req: Request, res: Response) => {
   try {
-    const data = createActivitySchema.parse(req.body);
+    // Création = toujours un brouillon, éventuellement incomplet (voir /submit pour les contrôles)
+    const data = draftActivitySchema.parse(req.body);
 
     const activity = await prisma.activity.create({
       data: {
@@ -282,7 +283,8 @@ activityRouter.put("/:id", async (req: Request, res: Response) => {
       return res.status(403).json({ error: "You cannot edit this activity" });
     }
 
-    const data = updateActivitySchema.parse(req.body);
+    // Un brouillon peut rester incomplet ; une activité déjà soumise/rejetée doit le rester complète
+    const data = (existing.status === "DRAFT" ? draftUpdateActivitySchema : updateActivitySchema).parse(req.body);
 
     // Changement de projet : il faut aussi avoir accès au projet cible
     if (data.projectId && data.projectId !== existing.projectId) {
@@ -355,6 +357,27 @@ activityRouter.post("/:id/submit", async (req, res) => {
     }
     if (!canSubmitActivity(req.user!, existing)) {
       return res.status(409).json({ error: `Activity cannot be submitted from status ${existing.status}` });
+    }
+
+    // Les brouillons peuvent être incomplets : on vérifie ici les champs obligatoires
+    const toCheck = await prisma.activity.findUnique({
+      where: { id: req.params.id },
+      select: {
+        activityTitle: true,
+        activityStartDate: true,
+        locations: { select: { countryId: true } },
+        _count: { select: { activityTypes: true, thematicFocus: true, funders: true } },
+      },
+    });
+    const missing: string[] = [];
+    if (!toCheck?.activityTitle || toCheck.activityTitle.trim().length < 3) missing.push("title");
+    if (!toCheck?.locations.some((l) => l.countryId)) missing.push("location (country)");
+    if (!toCheck?.activityStartDate) missing.push("start date");
+    if (!toCheck?._count.activityTypes) missing.push("activity type");
+    if (!toCheck?._count.thematicFocus) missing.push("thematic focus");
+    if (!toCheck?._count.funders) missing.push("funder");
+    if (missing.length > 0) {
+      return res.status(400).json({ error: `Activity is incomplete. Missing: ${missing.join(", ")}`, missing });
     }
 
     const updated = await prisma.activity.update({

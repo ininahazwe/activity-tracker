@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import MultiSelect from "../common/MultiSelect";
@@ -86,6 +86,12 @@ export default function ActivityMultiStepForm() {
     const [submitting, setSubmitting] = useState(false);
     const [loadingActivity, setLoadingActivity] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
+        const [lastSaved, setLastSaved] = useState<Date | null>(null);
+    const [savingDraft, setSavingDraft] = useState(false);
+    // Évite deux créations simultanées (clics rapprochés) : un seul enregistrement à la fois
+    const inflightSave = useRef<Promise<string | null> | null>(null);
+    // Identifiant du brouillon : celui de l'URL, ou celui créé dès le premier "Next"
+    const savedIdRef = useRef<string | undefined>(id);
     // Statut et droits de l'activité éditée (fournis par le serveur, hors données du formulaire)
     const [meta, setMeta] = useState<{ status: string; rejectionReason?: string | null; canEdit: boolean; canSubmit: boolean } | null>(null);
 
@@ -204,6 +210,7 @@ export default function ActivityMultiStepForm() {
             case "identity":
                 if (!data.projectId) e.projectId = "Please select a project";
                 if (!data.activityTitle.trim()) e.activityTitle = "Activity title is required";
+                else if (data.activityTitle.trim().length < 3) e.activityTitle = "Title must be at least 3 characters";
                 break;
 
             case "location":
@@ -230,7 +237,52 @@ export default function ActivityMultiStepForm() {
         return e;
     };
 
-    const nextStep = () => {
+    // Auto-enregistrement : uniquement pour une nouvelle activité ou un brouillon.
+    // Une activité rejetée reste complète et n'est enregistrée qu'à la fin.
+    const autoSaveEnabled = !id || meta?.status === "DRAFT";
+
+    const buildPayload = () => {
+        const extractIds = (items: any[]) => items.map((i) => (typeof i === "string" ? i : i.value));
+        return {
+            ...form,
+            activityTypes: extractIds(form.activityTypes),
+            thematicFocus: extractIds(form.thematicFocus),
+            funders: extractIds(form.funders),
+            targetGroups: extractIds(form.targetGroups),
+        };
+    };
+
+    // Enregistre le brouillon (création au premier appel, mise à jour ensuite). Renvoie l'id, ou null en cas d'échec.
+    const saveDraft = async (): Promise<string | null> => {
+        if (inflightSave.current) await inflightSave.current;
+
+        const run = async (): Promise<string | null> => {
+            try {
+                setSavingDraft(true);
+                let draftId = savedIdRef.current;
+                if (draftId) {
+                    await activityApi.update(draftId, buildPayload());
+                } else {
+                    const { data: created } = await activityApi.create(buildPayload());
+                    draftId = created?.id;
+                    savedIdRef.current = draftId;
+                }
+                setLastSaved(new Date());
+                return draftId ?? null;
+            } catch (err: any) {
+                console.error("[ACTIVITY_FORM] Draft save error:", err);
+                toast.error(err.response?.data?.error || "Could not save your draft");
+                return null;
+            } finally {
+                setSavingDraft(false);
+                inflightSave.current = null;
+            }
+        };
+        inflightSave.current = run();
+        return inflightSave.current;
+    };
+
+    const nextStep = async () => {
         const e = validateStep(step, form);
         if (Object.keys(e).length) {
             setErrors(e);
@@ -238,7 +290,24 @@ export default function ActivityMultiStepForm() {
             return;
         }
         setErrors({});
+        // Un échec d'enregistrement ne bloque pas la saisie : l'erreur est signalée et on avance
+        if (autoSaveEnabled) await saveDraft();
         if (step < totalSteps - 1) setStep(step + 1);
+    };
+
+    // Enregistre le brouillon et quitte le formulaire
+    const saveDraftAndExit = async () => {
+        const e = validateStep(step, form);
+        if (Object.keys(e).length) {
+            setErrors(e);
+            toast.error(Object.values(e)[0]);
+            return;
+        }
+        setErrors({});
+        if (await saveDraft()) {
+            toast.success("Draft saved");
+            navigate("/activities");
+        }
     };
 
     const prevStep = () => {
@@ -263,6 +332,7 @@ export default function ActivityMultiStepForm() {
             }
         }
         setErrors({});
+        if (autoSaveEnabled) void saveDraft();
         setStep(target);
     };
 
@@ -299,37 +369,29 @@ export default function ActivityMultiStepForm() {
         setErrors({});
 
         // ✅ Les données sont déjà au bon format (IDs simples, dates en YYYY-MM-DD)
-        const extractIds = (items: any[]) =>
-            items.map((i) => (typeof i === "string" ? i : i.value));
-
-        const dataToSubmit = {
-            ...form,
-            activityTypes: extractIds(form.activityTypes),
-            thematicFocus: extractIds(form.thematicFocus),
-            funders: extractIds(form.funders),
-            targetGroups: extractIds(form.targetGroups),
-        };
+        const dataToSubmit = buildPayload();
 
         try {
             setSubmitting(true);
-            let savedId = id;
-            if (id) {
-                await activityApi.update(id, dataToSubmit);
+            let finalId = savedIdRef.current;
+            if (finalId) {
+                await activityApi.update(finalId, dataToSubmit);
             } else {
                 const { data: created } = await activityApi.create(dataToSubmit);
-                savedId = created?.id;
+                finalId = created?.id;
+                savedIdRef.current = finalId;
             }
 
-            if (andSubmit && savedId) {
+            if (andSubmit && finalId) {
                 try {
-                    await activityApi.submit(savedId);
+                    await activityApi.submit(finalId);
                     toast.success("Activity saved and submitted for validation");
                 } catch (submitErr: any) {
                     // L'activité est bien enregistrée, seule la soumission a échoué
                     toast.error(submitErr.response?.data?.error || "Activity saved, but submission failed");
                 }
             } else {
-                toast.success(id ? "Activity updated" : "Activity saved as draft");
+                toast.success(!id || meta?.status === "DRAFT" ? "Draft saved" : "Activity updated");
             }
             navigate("/activities");
         } catch (err: any) {
@@ -804,13 +866,29 @@ export default function ActivityMultiStepForm() {
                         )}
                     </div>
                 ) : (
-                    <button
-                        onClick={nextStep}
-                        disabled={submitting}
-                        className="px-6 py-2 bg-accent hover:bg-accent/80 disabled:opacity-50 text-primary rounded-lg font-semibold transition-all"
-                    >
-                        Next →
-                    </button>
+                    <div className="flex items-center gap-3">
+                        {autoSaveEnabled && lastSaved && (
+                            <span className="text-[11px] text-gray-500 hidden sm:inline">
+                                Draft saved at {lastSaved.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                        )}
+                        {autoSaveEnabled && (
+                            <button
+                                onClick={saveDraftAndExit}
+                                disabled={submitting || savingDraft}
+                                className="px-4 py-2 bg-surface hover:bg-surface-hover disabled:opacity-50 text-gray-200 rounded-lg text-sm font-semibold transition-all"
+                            >
+                                Save draft & exit
+                            </button>
+                        )}
+                        <button
+                            onClick={nextStep}
+                            disabled={submitting || savingDraft}
+                            className="px-6 py-2 bg-accent hover:bg-accent/80 disabled:opacity-50 text-primary rounded-lg font-semibold transition-all"
+                        >
+                            {savingDraft ? "Saving..." : "Next →"}
+                        </button>
+                    </div>
                 )}
             </div>
         </div>

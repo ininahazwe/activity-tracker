@@ -81,6 +81,17 @@ export const createActivitySchema = z.object({
 
 export const updateActivitySchema = createActivitySchema.partial();
 
+// ─── BROUILLONS ───
+// Un brouillon s'enregistre au fil de la saisie : seuls le projet et le titre sont obligatoires.
+// Les champs exigés (lieu, type, thème, bailleur…) sont contrôlés à la soumission.
+export const draftActivitySchema = createActivitySchema.extend({
+  locations: z.array(locationSchema).optional().default([]),
+  activityTypes: z.array(z.string()).optional().default([]),
+  thematicFocus: z.array(z.string()).optional().default([]),
+  funders: z.array(z.string()).optional().default([]),
+});
+export const draftUpdateActivitySchema = draftActivitySchema.partial();
+
 export const validateActivitySchema = z.object({
   status: z.enum(["VALIDATED", "REJECTED"]),
   rejectionReason: z.string().optional(),
