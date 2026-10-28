@@ -99,7 +99,7 @@ export function ActivityChatBot({ projectId, activityId, onClose, embedded = fal
                         <div className="text-center text-muted-foreground text-sm py-4 h-full flex items-center justify-center">
                             <div>
                                 <MessageCircle size={32} className="mx-auto mb-3 opacity-50" />
-                                <p>Posez une question...</p>
+                                <p>Ask a question...</p>
                                 <p className="text-xs mt-2 opacity-75">
                                     💨 Groq + Claude
                                 </p>
